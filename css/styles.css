@@ -2151,7 +2151,7 @@ body.landing-slate .liquid-glass-canvas {
   font-size: clamp(0.75rem, 1.4vw, 0.85rem);
   font-weight: 500;
   letter-spacing: 0.1em;
-  color: rgba(255, 255, 255, 0.45);
+  color: rgba(255, 255, 255, 0.65);
   background: rgba(0, 0, 0, 0.25);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
@@ -2177,13 +2177,17 @@ body.landing-slate .liquid-glass-canvas {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.6rem;
+  position: relative;
 }
 
 .landing-hero__icon {
-  width: 44px;
-  height: 44px;
-  border-radius: 8px;
+  position: absolute;
+  left: calc(100% + 0.75rem);
+  top: 50%;
+  transform: translateY(-50%);
+  width: 88px;
+  height: 88px;
+  border-radius: 12px;
   opacity: 0.75;
   transition: opacity 0.4s ease, transform 0.4s ease;
 }
@@ -2270,8 +2274,8 @@ body.landing-slate .liquid-glass-canvas {
   }
 
   .landing-hero__icon {
-    width: 30px;
-    height: 30px;
+    width: 44px;
+    height: 44px;
   }
 
   .landing-hero__tagline {
