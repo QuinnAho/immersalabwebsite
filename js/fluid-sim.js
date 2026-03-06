@@ -1275,7 +1275,7 @@ function updateKeywords() {
 
 updateKeywords();
 initFramebuffers();
-multipleSplats(parseInt(Math.random() * 20) + 5);
+// Random splats removed for clean startup
 
 let lastUpdateTime = Date.now();
 let colorUpdateTimer = 0.0;
@@ -1572,13 +1572,13 @@ function multipleSplats(amount) {
     }
 }
 
-function splat(x, y, dx, dy, color) {
+function splat(x, y, dx, dy, color, radius = config.SPLAT_RADIUS / 100.0) {
     splatProgram.bind();
     gl.uniform1i(splatProgram.uniforms.uTarget, velocity.read.attach(0));
     gl.uniform1f(splatProgram.uniforms.aspectRatio, canvas.width / canvas.height);
     gl.uniform2f(splatProgram.uniforms.point, x, y);
     gl.uniform3f(splatProgram.uniforms.color, dx, dy, 0.0);
-    gl.uniform1f(splatProgram.uniforms.radius, correctRadius(config.SPLAT_RADIUS / 100.0));
+    gl.uniform1f(splatProgram.uniforms.radius, correctRadius(radius));
     blit(velocity.write);
     velocity.swap();
 
@@ -1809,3 +1809,38 @@ function hashCode(s) {
 
 // Scroll arrow removed - not applicable for this site
 
+// Add synthetic drag line on load
+setTimeout(() => {
+    let steps = 40;
+    let currentStep = 0;
+    let startX = 0.0;
+    let endX = 1.0;
+    let baseY = 0.5;
+    let delay = 25; // ms per step
+
+    let color = generateColor();
+    color.r *= 5.0;
+    color.g *= 5.0;
+    color.b *= 5.0;
+
+    let intervalId = setInterval(() => {
+        if (currentStep >= steps) {
+            clearInterval(intervalId);
+            return;
+        }
+        let progress = currentStep / (steps - 1);
+
+        let xNoise = (Math.random() - 0.5) * 0.2; // increased x noise
+        let yNoise = (Math.random() - 0.5) * 0.05;
+
+        let x = startX + (endX - startX) * progress + xNoise;
+        let y = baseY + yNoise;
+
+        let dx = 3000 + (Math.random() - 0.5) * 500;
+        let dy = (Math.random() - 0.5) * 500;
+
+        let customRadius = config.SPLAT_RADIUS / 250.0; // modified width
+        splat(x, y, dx, dy, color, customRadius);
+        currentStep++;
+    }, delay);
+}, 500);
