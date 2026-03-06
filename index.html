@@ -1,186 +1,55 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Immersalab - Next-Gen Graphics & Game Engine Development</title>
-    <meta name="description" content="Immersalab builds AI-powered tools for game engines, creates immersive AR/VR experiences, and provides graphics consulting for film and game development.">
+    <title>immersalab — immersive technology studio</title>
+    <meta name="description" content="immersalab is a 3D creative lab building immersive simulations and tools.">
     <link rel="icon" type="image/png" href="assets/images/Glint3DIcon.png">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
-    <link rel="stylesheet" href="css/styles.css?v=8">
+    <link rel="stylesheet" href="css/styles.css?v=13">
 </head>
-<body>
-    <header class="site-header">
-        <div class="site-header__inner container">
-            <a class="site-brand" href="index.html" aria-label="Immersalab home">
-                <div class="logo-circle">
-                    <img class="logo-circle__img" src="assets/images/Glint3DIcon.png" alt="Immersalab">
-                </div>
-            </a>
-            <nav class="site-nav" aria-label="Primary navigation">
-                <a class="site-nav__link" href="pages/glint3d.html">Glint3D</a>
-                <a class="site-nav__link" href="pages/niagaraai.html">NiagaraAI</a>
-                <a class="site-nav__link" href="pages/about.html">About</a>
-            </nav>
-            <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode">
-                <svg class="sun-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <circle cx="12" cy="12" r="5"/>
-                    <line x1="12" y1="1" x2="12" y2="3"/>
-                    <line x1="12" y1="21" x2="12" y2="23"/>
-                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
-                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-                    <line x1="1" y1="12" x2="3" y2="12"/>
-                    <line x1="21" y1="12" x2="23" y2="12"/>
-                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
-                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-                </svg>
-                <svg class="moon-icon" style="display: none;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-                </svg>
-            </button>
-        </div>
-    </header>
 
-    <main id="main">
-        <section class="immersalab-hero">
-            <div class="container">
-                <div class="immersalab-hero__wrapper">
-                    <canvas class="liquid-glass-canvas" aria-hidden="true"></canvas>
-                    <div class="immersalab-hero__content">
-                        <h1 class="immersalab-hero__title">Immersalab</h1>
-                        <p class="immersalab-hero__tagline">A next-gen creative lab building the future of graphics and immersive experiences.</p>
+<body class="landing-slate">
 
-                        <div class="glint-highlight">
-                            <h2 class="glint-highlight__title">Glint3D✨</h2>
-                            <p class="glint-highlight__description">
-                                3D is hard — Glint makes it effortless. A next-gen renderer for humans and machines with a simple UI, full CLI and scripting support, AI-agent integration, and advanced modern rendering capabilities. Built for the future of 3D tools and workflows.
-                            </p>
-                        </div>
+    <!-- Full-viewport fluid sim background -->
+    <canvas class="liquid-glass-canvas" aria-hidden="true"></canvas>
 
-                    </div>
+    <!-- Gradient vignette overlay for depth -->
+    <div class="landing-vignette" aria-hidden="true"></div>
 
-                    <div class="immersalab-hero__visual">
-                        <div class="hero-video-shell">
-                            <div class="hero-video-grid">
-                                <div class="hero-video-card hero-video-card--large">
-                                    <video autoplay loop muted playsinline class="hero-video">
-                                        <source src="assets/videos/WebGolemsCurse.mp4" type="video/mp4">
-                                    </video>
-                                    <div class="hero-video-overlay">
-                                        <span class="hero-video-label">Film/VFX</span>
-                                    </div>
-                                </div>
-                                <div class="hero-video-card">
-                                    <video autoplay loop muted playsinline class="hero-video">
-                                        <source src="assets/videos/WebVRPreview.mp4" type="video/mp4">
-                                    </video>
-                                    <div class="hero-video-overlay">
-                                        <span class="hero-video-label">AR/VR</span>
-                                    </div>
-                                </div>
-                                <div class="hero-video-card">
-                                    <video autoplay loop muted playsinline class="hero-video">
-                                        <source src="assets/videos/WebNarration.mp4" type="video/mp4">
-                                    </video>
-                                    <div class="hero-video-overlay">
-                                        <span class="hero-video-label">AI Animation</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+    <main id="main" class="landing-main">
+
+        <!-- Top status -->
+        <p class="landing-top-status">COMING SOON.</p>
+
+        <!-- Brand + status -->
+        <section class="landing-hero">
+            <div class="landing-hero__brand">
+                <h1 class="landing-hero__name">immersalab</h1>
+                <img class="landing-hero__icon" src="assets/images/Glint3DIcon.png" alt="" aria-hidden="true" width="40"
+                    height="40">
             </div>
+            <p class="landing-hero__tagline">making 3d easy</p>
+            <p class="landing-hero__hint">play with the fluid sim if you're bored :)</p>
         </section>
 
-        <section class="cta-section" id="contact">
-            <div class="container">
-                <div class="cta-card">
-                    <h2 class="cta-card__title">Let's Build Something Amazing</h2>
-                    <p class="cta-card__description">
-                        Whether you need AI tools for your game engine, AR/VR consulting, or a complete production partner, we're here to help bring your vision to life.
-                    </p>
-                    <div class="cta-card__actions">
-                        <a class="btn btn--primary" href="mailto:hello@glint3d.dev">Start a Project</a>
-                    </div>
-                </div>
-            </div>
-        </section>
     </main>
 
-    <footer class="site-footer">
-        <div class="footer__content container">
-            <div>
-                <p class="footer__brand">Immersalab</p>
-                <p class="footer__detail">Next-gen graphics company building the future of game engines and immersive experiences.</p>
-            </div>
-            <div class="footer__links">
-                <a class="footer__link" href="pages/glint3d.html">Glint3D</a>
-                <a class="footer__link" href="mailto:hello@glint3d.dev">Contact</a>
-            </div>
-        </div>
-        <div class="footer__meta">
-            <div class="container">
-                <span>Copyright 2025 Immersalab. All rights reserved.</span>
-            </div>
-        </div>
+    <!-- Minimal footer -->
+    <footer class="landing-footer">
+        <span>© 2026 immersalab</span>
     </footer>
 
-    <!-- Promo block required for fluid sim -->
-    <div class="promo" style="display: none;">
-      <div class="promo-middle">
-        <div class="promo-content">
-          <div class="promo-header">
-            <span class="promo-close">&times;</span>
-          </div>
-          <div class="promo-body">
-            <div class="links-container">
-              <a class="link" id="apple_link" target="_blank"></a>
-              <a class="link" id="google_link" target="_blank"></a>
-            </div>
-          </div>
-    </div>
-  </div>
-</div>
-
-<script>
-// Set theme BEFORE fluid sim loads
-// Check if returning from NiagaraAI page
-const previousTheme = localStorage.getItem('previousTheme');
-if (previousTheme) {
-    localStorage.setItem('theme', previousTheme);
-    localStorage.removeItem('previousTheme');
-}
-const currentTheme = localStorage.getItem('theme') || 'light';
-document.documentElement.setAttribute('data-theme', currentTheme);
-</script>
-<script src="js/fluid-sim.js"></script>
-<script>
-// Theme toggle functionality
-const themeToggle = document.getElementById('themeToggle');
-const sunIcon = document.querySelector('.sun-icon');
-const moonIcon = document.querySelector('.moon-icon');
-const html = document.documentElement;
-
-// Update icon visibility based on current theme
-if (currentTheme === 'dark') {
-    sunIcon.style.display = 'none';
-    moonIcon.style.display = 'block';
-}
-
-themeToggle.addEventListener('click', () => {
-    const theme = html.getAttribute('data-theme');
-    const newTheme = theme === 'light' ? 'dark' : 'light';
-
-    localStorage.setItem('theme', newTheme);
-
-    // Reload page to reinitialize fluid sim with new background color
-    window.location.reload();
-});
-</script>
+    <script>
+        document.documentElement.setAttribute('data-theme', 'dark');
+    </script>
+    <script src="js/fluid-sim.js"></script>
 </body>
+
 </html>

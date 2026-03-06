@@ -63,12 +63,11 @@ if (promoPopup && promoPopupClose) {
 
 // Simulation section
 
-const canvas = document.querySelector('.immersalab-hero canvas') || document.querySelector('canvas');
+const canvas = document.querySelector('canvas.liquid-glass-canvas') || document.querySelector('canvas');
 resizeCanvas();
 
-// Check theme and set background color
-const isDarkMode = document.documentElement.getAttribute('data-theme') === 'dark';
-const backgroundColor = isDarkMode ? { r: 0, g: 0, b: 0 } : { r: 255, g: 255, b: 255 };
+// Landing page is always dark — force black background
+const backgroundColor = { r: 0, g: 0, b: 0 };
 
 let config = {
     SIM_RESOLUTION: 128,
@@ -79,7 +78,7 @@ let config = {
     PRESSURE: 0.8,
     PRESSURE_ITERATIONS: 20,
     CURL: 30,
-    SPLAT_RADIUS: 0.25,
+    SPLAT_RADIUS: 0.15,
     SPLAT_FORCE: 6000,
     SHADING: true,
     COLORFUL: true,
@@ -90,7 +89,7 @@ let config = {
     BLOOM: true,
     BLOOM_ITERATIONS: 8,
     BLOOM_RESOLUTION: 256,
-    BLOOM_INTENSITY: 0.8,
+    BLOOM_INTENSITY: 0.5,
     BLOOM_THRESHOLD: 0.6,
     BLOOM_SOFT_KNEE: 0.7,
     SUNRAYS: true,
