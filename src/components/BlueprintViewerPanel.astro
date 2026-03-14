@@ -1,0 +1,258 @@
+---
+/**
+ * BlueprintViewerPanel - Persistent right-side panel for Blueprint examples.
+ * Uses ueblueprint's runtime paste pipeline instead of an unsupported content attribute.
+ */
+---
+
+<div class="resizer" data-resizer></div>
+<aside class="viewer-panel" data-viewer-panel>
+  <div class="viewer-panel__empty" data-viewer-empty>
+    <img src="/assets/images/Glint3DIcon.png" alt="" class="viewer-panel__logo" />
+  </div>
+
+  <div class="viewer-panel__active" data-viewer-active>
+    <button
+      type="button"
+      class="viewer-panel__close"
+      data-viewer-close
+      title="Close viewer"
+      aria-label="Close viewer"
+    >
+      &times;
+    </button>
+    <div class="viewer-panel__bp" data-viewer-bp></div>
+  </div>
+</aside>
+
+<script>
+  import 'ueblueprint';
+  import 'ueblueprint/dist/css/ueb-style.css';
+
+  type UeBlueprintElement = HTMLElement & {
+    template?: {
+      centerContentInViewport?: (smooth?: boolean) => void;
+    };
+    updateComplete?: Promise<unknown>;
+  };
+
+  type ViewerPayload = {
+    exampleId: string;
+    blueprintText: string;
+    title: string;
+  };
+
+  async function waitForViewerReady(viewer: UeBlueprintElement) {
+    await viewer.updateComplete;
+    await new Promise<void>((resolve) => {
+      requestAnimationFrame(() => resolve());
+    });
+  }
+
+  function escapeBlueprintMarkup(blueprintText: string) {
+    return blueprintText
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;');
+  }
+
+  async function populateViewer(viewer: UeBlueprintElement) {
+    try {
+      await waitForViewerReady(viewer);
+      // Try to center if available, but don't fail if not
+      viewer.template?.centerContentInViewport?.(false);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  function init() {
+    const panel = document.querySelector('[data-viewer-panel]');
+    if (!panel || panel.dataset.init) return;
+    panel.dataset.init = 'true';
+
+    const empty = panel.querySelector('[data-viewer-empty]') as HTMLElement;
+    const active = panel.querySelector('[data-viewer-active]') as HTMLElement;
+    const bpHost = panel.querySelector('[data-viewer-bp]') as HTMLElement;
+    const showEmpty = () => {
+      empty.style.display = 'flex';
+      active.style.display = 'none';
+      bpHost.classList.remove('viewer-panel__bp--error');
+      bpHost.replaceChildren();
+    };
+
+    const showBp = async (detail: ViewerPayload) => {
+      empty.style.display = 'none';
+      active.style.display = 'flex';
+
+      bpHost.classList.remove('viewer-panel__bp--error');
+      bpHost.innerHTML = `
+        <ueb-blueprint class="viewer-panel__graph">
+          <template>${escapeBlueprintMarkup(detail.blueprintText)}</template>
+        </ueb-blueprint>
+      `;
+
+      const viewer = bpHost.querySelector('ueb-blueprint') as UeBlueprintElement | null;
+      if (!viewer) {
+        bpHost.classList.add('viewer-panel__bp--error');
+        bpHost.textContent = 'Unable to create the Blueprint viewer.';
+        return;
+      }
+
+      const rendered = await populateViewer(viewer);
+      if (!rendered) {
+        bpHost.classList.add('viewer-panel__bp--error');
+        bpHost.textContent = 'Unable to render this Blueprint example.';
+      }
+    };
+
+    document.addEventListener('blueprint-viewer:open', ((e: CustomEvent) => showBp(e.detail)) as EventListener);
+    panel.querySelector('[data-viewer-close]')?.addEventListener('click', showEmpty);
+
+    const resizer = document.querySelector('[data-resizer]') as HTMLElement;
+    const layout = document.querySelector('.docs-layout') as HTMLElement;
+
+    if (resizer && layout) {
+      let isResizing = false;
+      let resizeStartX = 0;
+      let resizeStartWidth = 0;
+
+      resizer.addEventListener('mousedown', (event) => {
+        event.preventDefault();
+        isResizing = true;
+        resizeStartX = event.clientX;
+        resizeStartWidth = panel.getBoundingClientRect().width;
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
+      });
+
+      document.addEventListener('mousemove', (e) => {
+        if (!isResizing) return;
+        const deltaX = resizeStartX - e.clientX;
+        const nextWidth = resizeStartWidth + deltaX;
+        const clampedWidth = Math.max(320, Math.min(700, nextWidth));
+        layout.style.setProperty('--docs-viewer-width', `${Math.round(clampedWidth)}px`);
+      });
+
+      document.addEventListener('mouseup', () => {
+        isResizing = false;
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+      });
+    }
+
+    showEmpty();
+  }
+
+  init();
+  document.addEventListener('astro:page-load', init);
+</script>
+
+<style>
+  .resizer {
+    width: 4px;
+    cursor: col-resize;
+    background: transparent;
+    transition: background 0.2s;
+  }
+
+  .resizer:hover {
+    background: rgba(255, 255, 255, 0.1);
+  }
+
+  .viewer-panel {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: rgba(0, 0, 0, 0.5);
+    overflow: hidden;
+  }
+
+  .viewer-panel__empty {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .viewer-panel__logo {
+    width: 46%;
+    max-width: 190px;
+    opacity: 0.15;
+    filter: grayscale(1);
+  }
+
+  .viewer-panel__active {
+    flex: 1;
+    display: none;
+    flex-direction: column;
+    padding: 0;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .viewer-panel__close {
+    width: 1.65rem;
+    height: 1.65rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 999px;
+    color: rgba(255, 255, 255, 0.62);
+    font-size: 1rem;
+    line-height: 1;
+    cursor: pointer;
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+    z-index: 2;
+    transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+  }
+
+  .viewer-panel__close:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.14);
+    color: #fff;
+  }
+
+  .viewer-panel__bp {
+    flex: 1 1 0;
+    min-height: 0;
+    background: #141422;
+    border-radius: 0;
+    overflow: hidden;
+    position: relative;
+    --ueb-height: 100%;
+  }
+
+  .viewer-panel__bp--error {
+    display: grid;
+    place-items: center;
+    padding: 1rem;
+    color: rgba(255, 255, 255, 0.72);
+    font-size: 0.9rem;
+  }
+
+  .viewer-panel__bp :global(ueb-blueprint),
+  .viewer-panel__bp :global(.viewer-panel__graph) {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+    --ueb-height: 100%;
+  }
+
+  @media (max-width: 900px) {
+    .resizer,
+    .viewer-panel {
+      display: none;
+    }
+  }
+</style>

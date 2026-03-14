@@ -1,0 +1,91 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
+
+<BaseLayout
+  title="Page Not Found | immersalab"
+  description="The page you requested does not exist on immersalab.dev."
+  bodyClass="landing-slate"
+>
+  <canvas class="liquid-glass-canvas" aria-hidden="true"></canvas>
+  <div class="landing-vignette" aria-hidden="true"></div>
+
+  <main class="landing-main not-found">
+    <section class="landing-hero not-found__hero">
+      <p class="landing-top-status">404</p>
+      <h1 class="landing-hero__name">Page not found</h1>
+      <p class="landing-hero__tagline">
+        The route you requested does not exist or has moved.
+      </p>
+      <div class="not-found__actions">
+        <a href="/" class="btn btn--primary">Go Home</a>
+        <a href="/blueprint-health-analyzer/docs/" class="btn btn--outline">Open Docs</a>
+      </div>
+    </section>
+  </main>
+
+  <script is:inline src="/js/fluid-sim.js"></script>
+</BaseLayout>
+
+<style>
+  .not-found {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .not-found__hero {
+    max-width: 720px;
+    gap: 1.5rem;
+  }
+
+  .not-found__actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+    pointer-events: auto;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.85rem 1.8rem;
+    font-size: 1rem;
+    font-weight: 600;
+    font-family: var(--font-sans);
+    border-radius: 8px;
+    text-decoration: none;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+  }
+
+  .btn:hover {
+    transform: translateY(-2px);
+  }
+
+  .btn--primary {
+    background: rgba(255, 255, 255, 0.95);
+    color: #000;
+    border: 1px solid transparent;
+  }
+
+  .btn--primary:hover {
+    background: #ffffff;
+    box-shadow: 0 4px 15px rgba(255, 255, 255, 0.2);
+  }
+
+  .btn--outline {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    color: white;
+  }
+
+  .btn--outline:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.8);
+    color: white;
+  }
+</style>

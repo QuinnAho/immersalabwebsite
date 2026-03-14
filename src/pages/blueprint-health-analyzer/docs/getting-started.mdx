@@ -1,0 +1,73 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Getting Started | Blueprint Health Analyzer
+description: Install Blueprint Health Analyzer and run your first scan in under 5 minutes.
+---
+
+# Getting Started
+
+Get Blueprint Health Analyzer installed and run your first scan in under 5 minutes.
+
+## Requirements
+
+- Unreal Engine 5.4, 5.5, 5.6, or 5.7
+- Windows editor (macOS support planned)
+
+## Installation
+
+### From Fab Marketplace
+
+1. Purchase Blueprint Health Analyzer on the [Fab Marketplace](https://fab.com)
+2. In the Epic Games Launcher, go to your Library
+3. Find Blueprint Health Analyzer and click "Install to Engine"
+4. Select your engine version
+
+### Manual Installation
+
+1. Download the plugin ZIP
+2. Extract to your project's `Plugins/` folder:
+   ```
+   YourProject/
+   └── Plugins/
+       └── BlueprintHealthAnalyzer/
+           ├── BlueprintHealthAnalyzer.uplugin
+           └── ...
+   ```
+3. Restart the editor
+
+## Your First Scan
+
+1. Open your project in Unreal Editor
+2. Go to **Window → Blueprint Health Analyzer**
+3. The dashboard will open in a new tab
+4. Click **Scan Project**
+
+The scan will analyze all Blueprints, Materials, and Assets in your project. Depending on project size, this takes 10 seconds to a few minutes.
+
+## Understanding Results
+
+After the scan completes, you'll see a list of findings organized by severity:
+
+- **Critical** (red): Likely performance issues. Review these first.
+- **Warning** (yellow): Potential issues. Review when time permits.
+- **Info** (blue): Informational. May or may not need action.
+- **Suggestion** (gray): Best practices. Optional improvements.
+
+### Viewing Details
+
+Click any finding to see:
+
+- **Explanation**: Why this is flagged
+- **Location**: The exact asset and node
+- **Fix Steps**: How to resolve it
+- **Learn More**: Link to full documentation
+
+### Navigating to Assets
+
+Double-click a finding to open the asset in the editor. For Blueprint issues, this opens the Blueprint Editor and selects the problematic node.
+
+## Next Steps
+
+- [Configuration](/blueprint-health-analyzer/docs/configuration/) - Customize rules and thresholds
+- [Rules Overview](/blueprint-health-analyzer/docs/rules/) - Understand what each rule detects
+- [BP-REF-001](/blueprint-health-analyzer/docs/rules/bp-ref-001/) - Example: Understanding hard reference issues

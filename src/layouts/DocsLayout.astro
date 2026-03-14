@@ -1,0 +1,375 @@
+---
+import BaseLayout from './BaseLayout.astro';
+import Breadcrumbs from '../components/Breadcrumbs.astro';
+import BlueprintViewerPanel from '../components/BlueprintViewerPanel.astro';
+import { ruleDocs } from '../data/rules';
+
+interface Props {
+  title?: string;
+  description?: string;
+  /** Whether this page has Blueprint examples that can use the viewer panel */
+  hasBlueprintExamples?: boolean;
+  frontmatter?: {
+    title?: string;
+    description?: string;
+    hasBlueprintExamples?: boolean;
+  };
+}
+
+const frontmatter = Astro.props.frontmatter ?? {};
+const title = Astro.props.title ?? frontmatter.title ?? 'Blueprint Health Analyzer Docs | immersalab';
+const description = Astro.props.description ?? frontmatter.description;
+const hasBlueprintExamples = Astro.props.hasBlueprintExamples ?? frontmatter.hasBlueprintExamples ?? false;
+const currentPath = Astro.url.pathname;
+
+const docsPages = [
+  { href: '/blueprint-health-analyzer/docs/', label: 'Introduction' },
+  { href: '/blueprint-health-analyzer/docs/getting-started/', label: 'Getting Started' },
+  { href: '/blueprint-health-analyzer/docs/configuration/', label: 'Configuration' },
+];
+
+const docsNav = [
+  {
+    title: 'Getting Started',
+    links: docsPages,
+  },
+  {
+    title: 'Rules',
+    links: [
+      { href: '/blueprint-health-analyzer/docs/rules/', label: 'Rules Overview' },
+      ...ruleDocs.map((rule) => ({
+        href: `/blueprint-health-analyzer/docs/rules/${rule.slug}/`,
+        label: rule.id,
+      })),
+    ],
+  },
+];
+
+function normalizePath(path: string): string {
+  return path.endsWith('/') ? path : `${path}/`;
+}
+
+function isActive(href: string): boolean {
+  return normalizePath(currentPath) === normalizePath(href);
+}
+
+function getRuleLabelFromPath(pathname: string): string | undefined {
+  const match = pathname.match(/\/blueprint-health-analyzer\/docs\/rules\/([^/]+)\//);
+  if (!match) {
+    return undefined;
+  }
+
+  return ruleDocs.find((rule) => rule.slug === match[1])?.id;
+}
+
+function buildBreadcrumbs(pathname: string) {
+  const items = [
+    { href: '/', label: 'Home' },
+    { href: '/blueprint-health-analyzer/', label: 'Blueprint Health Analyzer' },
+    { href: '/blueprint-health-analyzer/docs/', label: 'Docs' },
+  ];
+
+  if (pathname === '/blueprint-health-analyzer/docs/' || pathname === '/blueprint-health-analyzer/docs') {
+    return items;
+  }
+
+  if (pathname.startsWith('/blueprint-health-analyzer/docs/rules/')) {
+    items.push({ href: '/blueprint-health-analyzer/docs/rules/', label: 'Rules' });
+
+    const ruleLabel = getRuleLabelFromPath(pathname);
+    if (ruleLabel) {
+      items.push({ label: ruleLabel });
+    }
+
+    return items;
+  }
+
+  const docsPage = docsPages.find((page) => isActive(page.href));
+  if (docsPage) {
+    items.push({ label: docsPage.label });
+  }
+
+  return items;
+}
+
+const breadcrumbs = buildBreadcrumbs(currentPath);
+---
+
+<BaseLayout title={title} description={description} bodyClass="landing-slate">
+  <!-- Full-viewport fluid sim background -->
+  <canvas class="liquid-glass-canvas" aria-hidden="true"></canvas>
+
+  <!-- Gradient vignette overlay for depth -->
+  <div class="landing-vignette" aria-hidden="true"></div>
+
+  <div class="docs-layout" data-has-viewer={hasBlueprintExamples ? 'true' : 'false'}>
+    <aside class="docs-sidebar">
+      <div class="docs-sidebar__header">
+        <a href="/blueprint-health-analyzer/" class="docs-sidebar__brand">
+          Blueprint Health Analyzer
+        </a>
+      </div>
+      <nav class="docs-nav">
+        {docsNav.map((section) => (
+          <div class="docs-nav__section">
+            <h3 class="docs-nav__title">{section.title}</h3>
+            <ul class="docs-nav__list">
+              {section.links.map((link) => (
+                <li>
+                  <a
+                    href={link.href}
+                    class={`docs-nav__link ${isActive(link.href) ? 'docs-nav__link--active' : ''}`}
+                  >
+                    {link.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </nav>
+    </aside>
+
+    <main class="docs-content">
+      <Breadcrumbs items={breadcrumbs} />
+      <slot />
+    </main>
+
+    <!-- Persistent Blueprint Viewer Panel (right side) -->
+    <BlueprintViewerPanel />
+  </div>
+  <script is:inline src="/js/fluid-sim.js"></script>
+</BaseLayout>
+
+<style>
+  .docs-layout {
+    --docs-sidebar-width: 240px;
+    --docs-resizer-width: 4px;
+    --docs-viewer-width: minmax(0, 1fr);
+    display: grid;
+    grid-template-columns:
+      var(--docs-sidebar-width)
+      minmax(0, 1fr)
+      var(--docs-resizer-width)
+      var(--docs-viewer-width);
+    min-width: 100vw;
+    height: 100vh;
+    position: relative;
+    z-index: 2;
+    --color-text: #e4e4e7;
+    --color-text-muted: #a1a1aa;
+    --color-border: rgba(255, 255, 255, 0.08);
+    --color-primary: #ffffff;
+    --color-primary-dark: #e4e4e7;
+    --color-secondary: #ffffff;
+    --color-surface: rgba(10, 10, 10, 0.45);
+    --color-surface-muted: rgba(255, 255, 255, 0.05);
+  }
+
+  /* Ensure children fill their grid cells */
+  .docs-layout > * {
+    min-width: 0;
+  }
+
+  .docs-sidebar {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+    background: var(--color-surface);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border-right: 1px solid var(--color-border);
+    padding: 1.5rem;
+  }
+
+  .docs-sidebar__header {
+    margin-bottom: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .docs-sidebar__brand {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--color-text);
+    text-decoration: none;
+  }
+
+  .docs-sidebar__brand:hover {
+    color: #ffffff;
+  }
+
+  .docs-nav__section {
+    margin-bottom: 1.5rem;
+  }
+
+  .docs-nav__title {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-text-muted);
+    margin: 0 0 0.75rem 0;
+  }
+
+  .docs-nav__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .docs-nav__link {
+    display: block;
+    padding: 0.5rem 0.75rem;
+    margin-bottom: 0.25rem;
+    font-size: 0.9rem;
+    color: var(--color-text);
+    text-decoration: none;
+    border-radius: 6px;
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+
+  .docs-nav__link:hover {
+    background: var(--color-surface-muted);
+    color: #ffffff;
+  }
+
+  .docs-nav__link--active {
+    background: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+    font-weight: 500;
+  }
+
+  .docs-nav__link--active:hover {
+    background: rgba(255, 255, 255, 0.15);
+    color: #ffffff;
+  }
+
+  .docs-content {
+    padding: 3rem 4rem;
+    height: 100vh;
+    overflow-y: auto;
+    background: rgba(0, 0, 0, 0.2);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-left: 1px solid var(--color-border);
+  }
+
+  .docs-content :global(.docs-callout) {
+    margin: 1.5rem 0;
+    padding: 1rem 1.15rem;
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.03);
+    color: var(--color-text);
+  }
+
+  .docs-content :global(.docs-grid) {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    margin: 1.5rem 0;
+  }
+
+  .docs-content :global(h1) {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin: 0 0 1rem 0;
+    color: #ffffff;
+    letter-spacing: -0.025em;
+  }
+
+  .docs-content :global(h2) {
+    font-size: 1.75rem;
+    font-weight: 600;
+    margin: 2.5rem 0 1rem 0;
+    color: #ffffff;
+    letter-spacing: -0.015em;
+  }
+
+  .docs-content :global(h3) {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin: 2rem 0 0.75rem 0;
+    color: #ffffff;
+  }
+
+  .docs-content :global(p) {
+    margin: 1rem 0;
+    line-height: 1.7;
+    color: var(--color-text);
+  }
+
+  .docs-content :global(ul),
+  .docs-content :global(ol) {
+    margin: 1rem 0;
+    padding-left: 1.5rem;
+  }
+
+  .docs-content :global(li) {
+    margin: 0.5rem 0;
+    line-height: 1.7;
+  }
+
+  .docs-content :global(code) {
+    font-family: var(--font-mono);
+    font-size: 0.9em;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    padding: 0.2em 0.4em;
+    border-radius: 4px;
+  }
+
+  .docs-content :global(pre) {
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    padding: 1.25rem;
+    border-radius: 8px;
+    overflow-x: auto;
+    margin: 1.5rem 0;
+  }
+
+  .docs-content :global(pre code) {
+    background: none;
+    border: none;
+    padding: 0;
+  }
+
+  .docs-content :global(a) {
+    color: var(--color-text);
+    text-decoration: underline;
+    text-decoration-color: rgba(255, 255, 255, 0.3);
+    text-underline-offset: 4px;
+    transition: color 0.2s ease, text-decoration-color 0.2s ease;
+  }
+
+  .docs-content :global(a:hover) {
+    color: #ffffff;
+    text-decoration-color: #ffffff;
+  }
+
+  @media (max-width: 900px) {
+    .docs-layout {
+      grid-template-columns: var(--docs-sidebar-width) 1fr;
+    }
+  }
+
+  @media (max-width: 800px) {
+    .docs-layout {
+      grid-template-columns: 1fr;
+    }
+
+    .docs-sidebar {
+      position: relative;
+      height: auto;
+      border-right: none;
+      border-bottom: 1px solid var(--color-border);
+    }
+
+    .docs-content {
+      padding: 2rem 1.5rem;
+      border-left: none;
+    }
+  }
+</style>

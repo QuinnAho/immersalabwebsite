@@ -1,97 +1,60 @@
-# Immersalab Website
+# Blueprint Health Analyzer Web Docs
 
-Official website for **Immersalab** — a creative lab building the future of graphics and immersive experiences through [Glint3D](https://github.com/QuinnAho/Glint3D), the living renderer.
+This directory contains the web-based documentation for the **Blueprint Health Analyzer** Unreal Engine plugin.
+It is built using [Astro](https://astro.build/).
 
-## Overview
+## Prerequisites
 
-This repository contains the marketing site for Immersalab and Glint3D, showcasing our rendering technology, product vision, and team.
+- [Node.js](https://nodejs.org/) (`^20.19.1` or `>=22.12.0`; `.node-version` pins `22.20.0`)
+- npm (comes with Node.js)
 
-## What's Inside
+## Commands
 
-### Current Sections
+All commands are run from the root of the project (`Web/immersalabwebsite/`), from a terminal:
 
-- **Updates Coming Soon** — 6 feature cards highlighting upcoming technology (Gaussian Splatting, Neural Denoising, etc.)
-- **Rendering OS** — Overview of the unified pipeline with distributed rendering capabilities
-- **What Sets It Apart** — Key features including:
-  - AI-Native Design (JSON-Ops for machine-readable scenes)
-  - **Task-Based Workflow** (with real-time animations: frame counters, progress bars, workflow steps)
-  - Autonomous Rendering capabilities
-- **Platform Roadmap** — 3 phases: VizPack (product visualization), DataGen (synthetic training data), FinViz (financial storytelling)
-- **Technical Foundation Strip** — Core technology highlights
-- **Company Page** — Team section with two founders + early contributors
-- **Resources** — Links to documentation, research, and GitHub
+| Command                   | Action                                           |
+| :------------------------ | :----------------------------------------------- |
+| `npm install`             | Installs dependencies                            |
+| `npm run dev`             | Starts local dev server at `localhost:4321`      |
+| `npm run build`           | Build your production site to `./dist/`          |
+| `npm run preview`         | Preview your build locally, before deploying     |
+| `npm run astro ...`       | Run CLI commands like `astro add`, `astro check` |
 
-### Key Features
+## Deployment
 
-  - Live frame counter (0 → 1247)
-  - Timer with MM:SS format
-  - Animated progress bar (0-100%)
-  - Workflow step transitions (Pending → Processing → Complete)
-  - Throughput calculation (fps)
-- **Terminal/CLI aesthetic** throughout with JetBrains Mono font
-- **WCAG AA+ accessibility** compliance (7:1+ contrast ratios)
-- Fully responsive design with mobile breakpoints
+This site is ready for **Cloudflare Pages** as a static Astro build.
 
-## Planned Additions
+Use these Pages settings:
 
-### Near-term
-- [ ] Developer blog/posts section with technical deep-dives
-- [ ] Render gallery showcasing CLI output examples with command snippets
+- **Framework preset**: `Astro`
+- **Build command**: `npm run build`
+- **Build output directory**: `dist`
+- **Root directory**: repository root (`Web/immersalabwebsite/` if this folder is deployed standalone)
 
-### Future Enhancements
-- [ ] Documentation search integration
-- [ ] Real-time render progress from cloud API
-- [ ] Download metrics dashboard
+Node is pinned in `.node-version` so Cloudflare Pages uses the same major runtime the local build
+was validated against.
 
-## Structure
+Expected deployment flow:
 
-```
-immersalabwebsite/
-├── index.html          # Main landing page
-├── company.html        # Team and company info
-├── styles.css          # Global styles and design system
-├── Glint3DIcon.png     # Brand assets
-└── README.md           # This file
-```
+1. Connect the GitHub repository to Cloudflare Pages.
+2. Confirm Pages is building from the website root with `npm run build`.
+3. Add the custom domain `immersalab.dev` in Cloudflare Pages.
+4. Verify the deployed routes under `/blueprint-health-analyzer/`.
 
-## Design System
+Notes:
 
-### Colors
-```css
---primary-color: #f59e0b      /* Amber */
---secondary-color: #8b5cf6    /* Violet */
---background-primary: #000000 /* Pure black */
---background-secondary: #0f0f0f
---background-tertiary: #1a1a1a
---text-primary: #f9fafb
-```
+- `astro.config.mjs` already sets `site` to `https://immersalab.dev`, which keeps sitemap and
+  canonical metadata aligned with production.
+- `public/robots.txt` and Astro sitemap output are included in the static build.
+- Legacy GitHub Pages artifacts, if present locally, are not used by Cloudflare Pages.
 
-### Typography
-- **Headings**: Inter (Google Fonts)
-- **Body**: Inter
-- **Code/Terminal**: JetBrains Mono
+## Project Structure
 
-## Development
+- `src/pages/` - Pages and routes
+- `src/components/` - Astro components
+- `src/layouts/` - Page layouts
+- `public/` - Static assets (CSS, JS, images)
 
-Simply open `index.html` in a browser. No build process required.
+## Integration with Plugin
 
-For local development with live reload:
-```bash
-# Using Python
-python -m http.server 8000
-
-# Using Node.js
-npx serve
-```
-
-## Contributing
-
-This is the official Immersalab website repository. For issues or suggestions, please open an issue.
-
-## License
-
-© 2024 Immersalab. All rights reserved.
-
----
-
-**Building Glint3D** — The Living Renderer that learns, adapts, and improves with every frame.
+This documentation site is hosted on the web and served to plugin users via "Learn More" links in the Blueprint Health Analyzer dashboard. It allows for rich visualizations of Unreal Engine Blueprint anti-patterns and solutions.

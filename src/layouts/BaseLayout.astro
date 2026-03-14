@@ -1,0 +1,68 @@
+---
+interface Props {
+  title: string;
+  description?: string;
+  image?: string;
+  bodyClass?: string;
+}
+
+const {
+  title,
+  description = "immersalab | Making 3D easy",
+  image = "/assets/images/Glint3DIcon.png",
+  bodyClass = ""
+} = Astro.props;
+
+function resolveSiteUrl(value: string): string {
+  if (/^https?:\/\//.test(value) || !Astro.site) {
+    return value;
+  }
+
+  return new URL(value, Astro.site).href;
+}
+
+const canonicalUrl = Astro.site ? new URL(Astro.url.pathname, Astro.site).href : undefined;
+const socialImage = resolveSiteUrl(image);
+---
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{title}</title>
+    <meta name="description" content={description}>
+    {canonicalUrl && <link rel="canonical" href={canonicalUrl} />}
+    <link rel="icon" type="image/png" href="/assets/images/Glint3DIcon.png">
+    <meta name="theme-color" content="#090d14">
+
+    <!-- Open Graph -->
+    <meta property="og:title" content={title}>
+    <meta property="og:description" content={description}>
+    {canonicalUrl && <meta property="og:url" content={canonicalUrl} />}
+    <meta property="og:image" content={socialImage}>
+    <meta property="og:type" content="website">
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content={title}>
+    <meta name="twitter:description" content={description}>
+    <meta name="twitter:image" content={socialImage}>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+
+<body class={bodyClass}>
+    <slot />
+
+    <script is:inline>
+        document.documentElement.setAttribute('data-theme', 'dark');
+    </script>
+</body>
+
+</html>

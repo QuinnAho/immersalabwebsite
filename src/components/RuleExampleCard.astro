@@ -1,0 +1,164 @@
+---
+interface Props {
+  exampleId: string;
+  title: string;
+  summary: string;
+  state?: 'problem' | 'fix';
+  blueprintText?: string;
+  actionLabel?: string;
+}
+
+const {
+  exampleId,
+  title,
+  summary,
+  state = 'problem',
+  blueprintText = '',
+  actionLabel = 'Open In Viewer',
+} = Astro.props;
+
+const eyebrow = state === 'fix' ? 'Recommended Pattern' : 'Problem Pattern';
+// Encode blueprint text for safe embedding in data attribute
+const encodedBlueprint = blueprintText ? encodeURIComponent(blueprintText) : '';
+---
+
+<article class="rule-example-card">
+  <div class="rule-example-card__copy">
+    <p class="rule-example-card__eyebrow">{eyebrow}</p>
+    <h3 class="rule-example-card__title">{title}</h3>
+    <p class="rule-example-card__summary">{summary}</p>
+  </div>
+
+  <div class="rule-example-card__actions">
+    <button
+      type="button"
+      class="rule-example-card__button"
+      data-blueprint-example-trigger={exampleId}
+      data-blueprint-title={title}
+      data-blueprint-summary={summary}
+      data-blueprint-state={state}
+      data-blueprint-text={encodedBlueprint}
+      aria-pressed="false"
+    >
+      {actionLabel}
+    </button>
+  </div>
+</article>
+
+<script>
+  // Set up click handlers for all example triggers
+  function setupExampleTriggers() {
+    const triggers = document.querySelectorAll('[data-blueprint-example-trigger]');
+
+    triggers.forEach((trigger) => {
+      // Skip if already initialized
+      if (trigger.hasAttribute('data-initialized')) return;
+      trigger.setAttribute('data-initialized', 'true');
+
+      trigger.addEventListener('click', (event) => {
+        event.preventDefault();
+
+        const btn = event.currentTarget as HTMLElement;
+        const exampleId = btn.getAttribute('data-blueprint-example-trigger');
+        const title = btn.getAttribute('data-blueprint-title') || '';
+        const summary = btn.getAttribute('data-blueprint-summary') || '';
+        const state = btn.getAttribute('data-blueprint-state') as 'problem' | 'fix' || 'problem';
+        const encodedText = btn.getAttribute('data-blueprint-text') || '';
+
+        // Decode the blueprint text
+        const blueprintText = encodedText ? decodeURIComponent(encodedText) : '';
+
+        if (!blueprintText) {
+          console.warn(`No blueprint text found for example: ${exampleId}`);
+          return;
+        }
+
+        // Emit custom event for the viewer panel to catch
+        const openEvent = new CustomEvent('blueprint-viewer:open', {
+          bubbles: true,
+          detail: {
+            exampleId,
+            title,
+            summary,
+            state,
+            blueprintText,
+          },
+        });
+
+        document.dispatchEvent(openEvent);
+      });
+    });
+  }
+
+  // Run on initial load
+  setupExampleTriggers();
+
+  // Also run after Astro page transitions (if using View Transitions)
+  document.addEventListener('astro:page-load', setupExampleTriggers);
+</script>
+
+<style>
+  .rule-example-card {
+    display: grid;
+    gap: 0.85rem;
+    margin: 1.5rem 0;
+    padding: 1rem 0;
+    border-radius: 0;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-left: 0;
+    border-right: 0;
+    background: transparent;
+  }
+
+  .rule-example-card__copy > * {
+    margin: 0;
+  }
+
+  .rule-example-card__eyebrow {
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+  }
+
+  .rule-example-card__title {
+    margin-top: 0.2rem;
+    font-size: 1rem;
+  }
+
+  .rule-example-card__summary {
+    margin-top: 0.35rem;
+    color: var(--color-text-muted);
+  }
+
+  .rule-example-card__actions {
+    display: flex;
+    justify-content: flex-start;
+  }
+
+  .rule-example-card__button {
+    appearance: none;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--color-text);
+    padding: 0.45rem 0.7rem;
+    font-size: 0.92rem;
+    font: inherit;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  }
+
+  .rule-example-card__button:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.2);
+    color: #ffffff;
+  }
+
+  .rule-example-card__button[data-active='true'] {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.2);
+    color: #ffffff;
+  }
+</style>

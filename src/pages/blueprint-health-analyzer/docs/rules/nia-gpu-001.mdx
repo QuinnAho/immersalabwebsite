@@ -1,0 +1,316 @@
+---
+layout: ../../../../layouts/DocsLayout.astro
+title: NIA-GPU-001 Niagara GPU Budget | Blueprint Health Analyzer
+description: Learn why Niagara GPU emitters and collision modules impact performance and how to optimize particle systems.
+---
+
+import BlueprintViewer from '../../../../components/BlueprintViewer.astro';
+import SeverityBadge from '../../../../components/SeverityBadge.astro';
+
+# NIA-GPU-001: Niagara GPU Budget
+
+<div class="rule-meta">
+  <SeverityBadge severity="Warning" />
+  <span class="category">Niagara</span>
+</div>
+
+## What This Rule Detects
+
+This rule flags Niagara Systems with settings that may exceed runtime VFX budgets:
+
+- **GPU emitter count**: GPU simulation has per-emitter overhead
+- **Collision module count**: CPU↔GPU sync for collision is expensive
+- **Missing fixed bounds**: Dynamic bounds cause CPU recalculation each frame
+- **Total emitter complexity**: Combined risk of all emitters
+
+The default threshold is a risk score of 5.0 before flagging.
+
+## Why This Matters
+
+### Three Budgets to Consider
+
+Niagara systems affect three distinct budgets:
+
+| Budget | What It Means | When You Feel It |
+|--------|---------------|------------------|
+| **GPU simulation** | Particle update on GPU | Frame time, heat |
+| **CPU ↔ GPU sync** | Data transfers for collision | Stalls, hitches |
+| **Culling/bounds** | Visibility determination | Pop-in, CPU overhead |
+
+### GPU vs CPU Emitters: A Trade-off
+
+GPU simulation is excellent for **scale** (thousands of particles) but has per-emitter overhead:
+- Each GPU emitter requires compute dispatches
+- Buffer management and sync points add fixed cost
+- Many small GPU emitters can be worse than one large CPU emitter
+
+**Rule of thumb** (from Niagara documentation):
+- Under 1,000 particles → CPU often more efficient
+- Over 1,000 particles → GPU usually wins
+- Collision needed → CPU recommended (avoids sync)
+
+### Fixed Bounds: Culling Correctness and Performance
+
+**Why this matters**: Niagara systems with missing fixed bounds must calculate bounds dynamically by reading all particle positions every frame.
+
+From Niagara's API documentation: Fixed Bounds is an explicit, editable property that enables skipping per-frame bounds calculation.
+
+**Without fixed bounds:**
+- System recalculates bounds every frame
+- Reads all particle positions from GPU
+- Causes CPU overhead and potential sync stalls
+- Effects may pop/disappear unexpectedly during culling
+
+**With fixed bounds:**
+- Bounds are known in advance
+- Culling is instant and correct
+- No per-frame position reads
+
+### Tick Scheduling Caveat
+
+From Niagara documentation: Using a fixed tick delta can cause **substepping** (multiple ticks per frame) and can force the system to tick on the **game thread** instead of an async task.
+
+If you "stabilize" simulation with fixed delta without understanding the scheduling consequence, you may unexpectedly increase CPU cost.
+
+**Scalability**: Particle systems that run fine in isolation can destroy frame rate when 10+ instances spawn simultaneously.
+
+**Real Example**: NS_MuzzleFlash with 4 GPU emitters and collision for shell casings. Each weapon fires it. With 8 AI firing simultaneously, that's 32 GPU emitters and 8 collision syncs per frame.
+
+## When This Is Acceptable
+
+- **Hero VFX**: Important moments that justify the cost (ultimates, boss attacks)
+- **Limited instances**: Only 1-2 ever active simultaneously
+- **Cinematic sequences**: Pre-planned, non-interactive visuals
+- **Already profiled**: Measured on target hardware and within budget
+
+## The Problem
+
+<BlueprintViewer
+  title="Niagara complexity compounds with instance count"
+  caption="Per-emitter overhead multiplies when multiple systems spawn."
+  highlights={[
+    'GPU emitters have fixed overhead per-emitter',
+    'Collision modules cause GPU→CPU→GPU sync',
+    'Missing fixed bounds forces per-frame calculation'
+  ]}
+/>
+
+### Risk Score Calculation
+
+```
+RiskScore =
+    GpuEmitterCount × 2.0 +
+    CollisionModuleCount × 1.5 +
+    TotalEmitterCount × 0.25 +
+    (MissingFixedBounds ? 1.0 : 0.0)
+
+EstimatedImpactMs =
+    GpuEmitterCount × 0.40 +
+    CollisionModuleCount × 0.18
+
+Threshold: 5.0 (default)
+Critical multiplier: 2.5×
+```
+
+### Example Analysis
+
+```
+NS_Explosion (complex VFX)
+├── Emitter 1: Core Flash (GPU)         → +2.0 risk
+├── Emitter 2: Debris (GPU + Collision) → +2.0 + 1.5 = +3.5 risk
+├── Emitter 3: Smoke Trail (GPU)        → +2.0 risk
+├── Emitter 4: Sparks (GPU)             → +2.0 risk
+├── Emitter 5: Shockwave (CPU)          → +0.25 risk
+└── No Fixed Bounds                      → +1.0 risk
+
+Total Risk Score: 10.75 (threshold: 5.0) = CRITICAL
+Estimated Impact: 4 GPU × 0.4 + 1 Collision × 0.18 = 1.78ms/instance
+```
+
+## The Fix
+
+### Option 1: Convert GPU to CPU Emitters
+
+For emitters with low particle counts, CPU can be more efficient:
+
+**When to use CPU:**
+- &lt;1,000 particles
+- Simple update logic
+- No GPU-specific features (GPU events, mesh sampling)
+- Collision needed
+
+**How to convert:**
+1. Open Niagara System
+2. Select emitter
+3. Properties → Sim Target → CPUSim
+
+CPU emitters avoid GPU dispatch overhead for small particle counts.
+
+### Option 2: Consolidate Emitters
+
+Merge similar emitters to reduce overhead:
+
+**Before (4 GPU emitters):**
+```
+Emitter 1: Red sparks
+Emitter 2: Orange sparks
+Emitter 3: Yellow sparks
+Emitter 4: White sparks
+```
+
+**After (1 GPU emitter):**
+```
+Emitter 1: Sparks
+  → Random color from palette
+  → Single dispatch instead of 4
+```
+
+### Option 3: Remove or Simplify Collision
+
+Collision is expensive. Consider alternatives:
+
+**Option A: Kill instead of collide**
+```
+Particle Update → Kill Particles When Below Z
+(Floor height is known, no collision needed)
+```
+
+**Option B: CPU emitter for collision**
+```
+GPU emitter for visuals (thousands of particles)
+CPU emitter for physics (tens of particles)
+```
+
+**Option C: Collision on spawn only**
+```
+Check spawn position, adjust if inside geometry
+No per-frame collision queries
+```
+
+### Option 4: Enable Fixed Bounds
+
+Set explicit bounds instead of calculating:
+
+1. Open Niagara System
+2. System Properties → Fixed Bounds
+3. Check **Fixed Bounds**
+4. Set **Min/Max** to contain all possible particles
+
+**Estimating bounds:**
+```
+Max extent = SpawnPosition + (MaxVelocity × Lifetime) + Gravity
+```
+
+Example: Particles spawn at origin, max velocity 500, lifetime 2s, gravity -980:
+```
+X/Y: ±1000 units (500 × 2)
+Z: +1000 to -2460 (velocity up, then gravity down)
+```
+
+### Option 5: Use Scalability Settings
+
+Configure LOD and budget scaling:
+
+1. Open Niagara System
+2. System Properties → Effect Type
+3. Create/assign Effect Type with budget limits
+
+**Effect Type settings:**
+```
+Max System Instances: 10
+Max Per-System Budget: 0.5ms
+Significance Handler: Distance-based
+```
+
+### Option 6: Split into Scalability Tiers
+
+Create quality levels for different platforms:
+
+```
+NS_Explosion_High
+├── 5 GPU emitters, collision, full detail
+└── Used on: High-end PC
+
+NS_Explosion_Med
+├── 3 GPU emitters, no collision
+└── Used on: Console, mid-range PC
+
+NS_Explosion_Low
+├── 1 CPU emitter, simple sprites
+└── Used on: Mobile, low-end
+```
+
+Use Scalability settings to auto-select based on platform.
+
+## GPU vs CPU Emitter Guide
+
+| Factor | Prefer GPU | Prefer CPU |
+|--------|-----------|-----------|
+| Particle count | >1,000 | &lt;1,000 |
+| Update complexity | Parallel-friendly | Sequential/conditional |
+| Collision needed | No | Yes |
+| Mesh sampling | Mesh Distance Fields | CPU mesh sampling |
+| Instance count | Few (1-5) | Many (10+) |
+
+## Bounds Optimization
+
+**Why fixed bounds matter:**
+- Dynamic bounds read all particle positions every frame
+- With 10,000 particles, that's 10k position reads
+- Fixed bounds skip all of this
+
+**When dynamic bounds are OK:**
+- Debug/development only
+- &lt;100 particles total
+- Bounds change is intentional (growing effects)
+
+## Profiling Niagara
+
+Use these console commands:
+```
+stat Niagara           // Overview of Niagara cost
+stat NiagaraGPU        // GPU-specific timing
+stat NiagaraSystem     // Per-system breakdown
+```
+
+In Niagara Editor:
+- Performance Mode shows per-emitter cost
+- Statistics panel shows particle counts
+- GPU Visualizer shows dispatch timings
+
+## Configuration
+
+**Threshold**: Risk score before flagging (default: 5.0)
+
+To adjust in Project Settings:
+```
+Blueprint Health Analyzer → Rule Thresholds → NIA-GPU-001 → 8.0
+```
+
+Higher thresholds for VFX-heavy games with validated budgets. Lower thresholds (3.0) for mobile or VR where particle budgets are tight.
+
+## Related Rules
+
+- [BP-TICK-001](/blueprint-health-analyzer/docs/rules/bp-tick-001/) - Niagara spawned per-frame compounds cost
+- [RND-SET-001](/blueprint-health-analyzer/docs/rules/rnd-set-001/) - Rendering settings affect Niagara performance
+- [AST-MESH-001](/blueprint-health-analyzer/docs/rules/ast-mesh-001/) - Mesh particles add geometry cost
+
+<style>
+{`
+  .rule-meta {
+    display: flex;
+    gap: 0.75rem;
+    margin-bottom: 2rem;
+  }
+
+  .category {
+    display: inline-block;
+    padding: 0.3rem 0.75rem;
+    font-size: 0.8rem;
+    font-weight: 500;
+    background: var(--color-surface-muted);
+    color: var(--color-text-muted);
+    border-radius: 4px;
+  }
+`}
+</style>

@@ -1,0 +1,285 @@
+---
+layout: ../../../../layouts/DocsLayout.astro
+title: RND-SET-001 Rendering Settings Audit | Blueprint Health Analyzer
+description: Learn why project-wide rendering feature combinations like Lumen, VSM, and Nanite affect performance budgets.
+---
+
+import BlueprintViewer from '../../../../components/BlueprintViewer.astro';
+import SeverityBadge from '../../../../components/SeverityBadge.astro';
+
+# RND-SET-001: Rendering Settings Audit
+
+<div class="rule-meta">
+  <SeverityBadge severity="Warning" />
+  <span class="category">Rendering</span>
+</div>
+
+## What This Rule Detects
+
+This rule audits project-wide rendering settings and flags potentially expensive feature combinations:
+
+- **Lumen Global Illumination**: Dynamic GI with significant GPU cost
+- **Lumen Reflections**: Screen-space + ray-traced reflection system
+- **Virtual Shadow Maps (VSM)**: High-quality shadow system with memory overhead
+- **Nanite**: Virtualized geometry system with setup overhead
+- **Feature combinations**: Lumen + VSM + Nanite together compound cost
+
+The default threshold is a risk score of 2.5 before flagging.
+
+## Why This Matters
+
+### Epic's Published Lumen Budgets
+
+Epic's performance guidance provides concrete budget targets for Lumen:
+
+| Resolution | Target FPS | Lumen GI + Reflections Budget |
+|------------|------------|-------------------------------|
+| 1080p | 60 FPS | **4ms** |
+| 1080p | 30 FPS | **8ms** |
+| 4K | 60 FPS | ~8-10ms (HWRT required) |
+
+UE 5.5's official release notes state Lumen can run at **60 Hz on platforms with hardware ray tracing support** due to HWRT improvements.
+
+**Fallback warning**: If hardware ray-tracing is unavailable, Lumen switches to software ray-tracing which costs **8-15ms instead of 3-4ms**. Verify on your target GPU.
+
+### VSM: Physical Page Pool Concept
+
+Virtual Shadow Maps store shadow data for all lights in a **single large texture pool**. From Epic's documentation:
+
+- VSM uses a "physical page pool" for shadow storage
+- Pool can overflow with many lights or large shadow distances
+- Overflow causes quality artifacts or missing shadows
+- VRAM pressure increases with shadow quality settings
+
+**Typical VRAM usage**: 200-500MB for shadow atlas depending on quality settings.
+
+### Resolution Scaling Impact
+
+These costs scale with resolution:
+
+| Feature | 1080p | 1440p | 4K |
+|---------|-------|-------|-----|
+| Lumen GI | ~3ms | ~5ms | ~8-10ms |
+| Lumen Reflections | ~1ms | ~2ms | ~3ms |
+| VSM | ~2ms | ~2.5ms | ~3ms |
+
+AMD's GPUOpen guidance reports Lumen software vs hardware RT can differ by **~1.2ms** on a Radeon 7900 XTX—"one checkbox" can be a measurable budget swing.
+
+**Memory Pressure**: VSM uses significant GPU memory for shadow data. Nanite stores mesh data in GPU-visible memory. Combined, they can consume 1-2GB+ VRAM.
+
+**Platform Compatibility**: Mobile, Switch, and older consoles may not support these features. Projects targeting them should disable or configure alternatives.
+
+**Real Example**: A project enables Lumen GI, Lumen Reflections, VSM, and Nanite. On an RTX 3070, base rendering cost is 10ms (60fps ceiling). Add 100 Nanite meshes, dynamic lights, and gameplay—frame rate drops below 30.
+
+## When This Is Acceptable
+
+- **High-end PC exclusive**: Targeting RTX 3080+ or equivalent
+- **Scalability configured**: Quality levels disable features for lower specs
+- **Profiled on target hardware**: Measured and accepted the baseline cost
+- **Artistic requirement**: Lumen GI is essential to the visual style
+
+## The Problem
+
+<BlueprintViewer
+  title="Rendering feature stack compounds GPU cost"
+  caption="Each major feature adds baseline cost that applies to every frame."
+  highlights={[
+    'Lumen GI: 2-6ms depending on scene complexity',
+    'VSM: 1-3ms plus memory overhead',
+    'Nanite: 0.5-2ms plus per-mesh cost'
+  ]}
+/>
+
+### Feature Combination Risk
+
+```
+Project Rendering Settings Analysis
+
+Lumen Global Illumination: ENABLED   → +1.0 risk
+Lumen Reflections: ENABLED           → +0.5 risk
+Virtual Shadow Maps: ENABLED         → +1.0 risk
+Nanite: ENABLED                      → +1.0 risk
+
+Combinations:
+Lumen GI + VSM: +0.75 risk (both compete for GPU)
+Lumen GI + Nanite: +0.50 risk (both use compute)
+
+Total Risk Score: 4.75 (threshold: 2.5) = CRITICAL
+Estimated Baseline: ~0.90ms × 4.75 ≈ 4.3ms
+```
+
+### GPU Budget Context
+
+| GPU Tier | Frame Budget (60fps) | After Lumen+VSM+Nanite | Remaining |
+|----------|---------------------|------------------------|-----------|
+| RTX 4090 | 16.67ms | ~5ms | ~11ms |
+| RTX 3070 | 16.67ms | ~8ms | ~8ms |
+| RTX 2060 | 16.67ms | ~12ms | ~4ms |
+| GTX 1070 | 16.67ms | Not supported | N/A |
+
+## The Fix
+
+### Option 1: Configure Scalability Levels
+
+Create quality tiers that disable expensive features on lower specs:
+
+**Engine/Config/DefaultScalability.ini:**
+```ini
+[GlobalIlluminationQuality@0]
+r.DynamicGlobalIlluminationMethod=0  ; None
+
+[GlobalIlluminationQuality@1]
+r.DynamicGlobalIlluminationMethod=1  ; Screen Space
+
+[GlobalIlluminationQuality@2]
+r.DynamicGlobalIlluminationMethod=2  ; Lumen
+
+[ShadowQuality@0]
+r.Shadow.Virtual.Enable=0  ; Traditional shadows
+
+[ShadowQuality@2]
+r.Shadow.Virtual.Enable=1  ; VSM
+```
+
+### Option 2: Disable Lumen for Non-Essential Projects
+
+If your project doesn't require dynamic GI:
+
+**Project Settings → Rendering:**
+1. Dynamic Global Illumination Method → **None** or **Screen Space**
+2. Reflection Method → **Screen Space**
+
+**Alternatives to Lumen GI:**
+- Baked lightmaps for static scenes
+- Light Propagation Volumes for specific use cases
+- Screen Space GI for subtle bounce light
+
+### Option 3: Use VSM Selectively
+
+VSM excels for specific scenarios:
+
+**Enable VSM when:**
+- Many dynamic/movable lights
+- Large open worlds
+- Cinematic quality shadows needed
+
+**Disable VSM when:**
+- Mostly static lighting
+- Interior-focused levels
+- Targeting older hardware
+
+**Project Settings → Rendering:**
+- Shadow Map Method → **Shadow Maps** (traditional) or **Virtual Shadow Maps**
+
+### Option 4: Nanite Per-Mesh Control
+
+Don't enable Nanite globally if only some meshes benefit:
+
+**Keep Nanite off by default:**
+1. Project Settings → Rendering → Nanite → Default Nanite Enabled = Off
+
+**Enable per-mesh:**
+1. Open high-detail Static Mesh
+2. Check **Enable Nanite Support**
+3. Leave simple meshes with traditional LODs
+
+This avoids Nanite overhead on meshes that don't need it.
+
+### Option 5: Platform-Specific Rendering Paths
+
+Configure different settings per platform:
+
+**Config/Windows/WindowsEngine.ini:**
+```ini
+[/Script/Engine.RendererSettings]
+r.DynamicGlobalIlluminationMethod=2
+r.Shadow.Virtual.Enable=True
+r.Nanite.ProjectEnabled=True
+```
+
+**Config/Switch/SwitchEngine.ini:**
+```ini
+[/Script/Engine.RendererSettings]
+r.DynamicGlobalIlluminationMethod=0
+r.Shadow.Virtual.Enable=False
+r.Nanite.ProjectEnabled=False
+```
+
+### Option 6: Profile and Document Budget
+
+If you intentionally use expensive features, document the decision:
+
+1. **Profile on lowest supported hardware**
+2. **Document baseline rendering cost**
+3. **Set gameplay feature budgets** based on remaining frame time
+4. **Accept the finding** in Blueprint Health Analyzer with justification
+
+## Feature Compatibility Matrix
+
+| Feature | RTX 20+ | GTX 10+ | Console (PS5/XSX) | Console (Switch) | Mobile |
+|---------|---------|---------|-------------------|------------------|--------|
+| Lumen HW RT | Yes | No | Yes | No | No |
+| Lumen SW RT | Yes | Slow | Yes | No | No |
+| VSM | Yes | Yes | Yes | No | No |
+| Nanite | Yes | Yes | Yes | Limited | No |
+
+## Checking Current Settings
+
+**Via Console Commands:**
+```
+r.DynamicGlobalIlluminationMethod   ; 0=None, 1=SSGI, 2=Lumen
+r.ReflectionMethod                   ; 0=None, 1=SSR, 2=Lumen
+r.Shadow.Virtual.Enable              ; 0=Off, 1=On
+r.Nanite.ProjectEnabled              ; 0=Off, 1=On
+```
+
+**Via Project Settings:**
+Project Settings → Engine → Rendering → Global Illumination / Shadows / Nanite
+
+## Performance Profiling
+
+Key stats for rendering features:
+```
+stat GPU                  ; Overall GPU timing
+stat Lumen                ; Lumen-specific costs
+stat ShadowRendering      ; Shadow map costs
+stat Nanite               ; Nanite geometry costs
+ProfileGPU                ; Detailed GPU profiler
+```
+
+## Configuration
+
+**Threshold**: Risk score before flagging (default: 2.5)
+
+To adjust in Project Settings:
+```
+Blueprint Health Analyzer → Rule Thresholds → RND-SET-001 → 4.0
+```
+
+Higher thresholds for projects targeting high-end hardware exclusively. Lower thresholds (1.5) for projects that must scale to older hardware.
+
+## Related Rules
+
+- [AST-MESH-001](/blueprint-health-analyzer/docs/rules/ast-mesh-001/) - Mesh optimization interacts with Nanite
+- [MAT-INST-001](/blueprint-health-analyzer/docs/rules/mat-inst-001/) - Material complexity compounds rendering cost
+- [NIA-GPU-001](/blueprint-health-analyzer/docs/rules/nia-gpu-001/) - VFX compete with rendering features for GPU time
+
+<style>
+{`
+  .rule-meta {
+    display: flex;
+    gap: 0.75rem;
+    margin-bottom: 2rem;
+  }
+
+  .category {
+    display: inline-block;
+    padding: 0.3rem 0.75rem;
+    font-size: 0.8rem;
+    font-weight: 500;
+    background: var(--color-surface-muted);
+    color: var(--color-text-muted);
+    border-radius: 4px;
+  }
+`}
+</style>

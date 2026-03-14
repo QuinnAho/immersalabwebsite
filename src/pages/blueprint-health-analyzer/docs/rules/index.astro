@@ -1,0 +1,52 @@
+---
+import DocsLayout from '../../../../layouts/DocsLayout.astro';
+import RuleCard from '../../../../components/RuleCard.astro';
+import { getRulesByCategory, ruleCategories } from '../../../../data/rules';
+---
+
+<DocsLayout
+  title="Rules Overview | Blueprint Health Analyzer"
+  description="Complete list of all 13 rules in Blueprint Health Analyzer with severity levels and brief descriptions."
+>
+  <h1>Rules Overview</h1>
+
+  <p>
+    Blueprint Health Analyzer currently ships with 13 built-in rules across Blueprint, Material,
+    Asset, Niagara, and Rendering categories. Full visual write-ups are being added rule by rule;
+    until then, each rule page still resolves and shows its current scope and documentation status.
+  </p>
+
+  <div class="docs-callout">
+    <strong>Current Phase 2 status:</strong> navigation, placeholder routes, and shared rule
+    components are wired. Full rule content is Phase 3 work.
+  </div>
+
+  {ruleCategories.map((category) => {
+    const rules = getRulesByCategory(category);
+
+    return (
+      <>
+        <h2>{category} Rules</h2>
+        <div class="docs-grid">
+          {rules.map((rule) => (
+            <RuleCard rule={rule} />
+          ))}
+        </div>
+      </>
+    );
+  })}
+
+  <h2>Severity Levels</h2>
+  <ul>
+    <li><strong>Critical</strong>: Likely to cause noticeable performance, memory, or shipping-risk issues.</li>
+    <li><strong>Warning</strong>: Needs review because it can become expensive or hard to maintain at scale.</li>
+    <li><strong>Info</strong>: Context worth checking, but not usually a blocker.</li>
+    <li><strong>Suggestion</strong>: Best-practice improvement with lower immediate risk.</li>
+  </ul>
+
+  <h2>Configuration Status</h2>
+  <p>
+    Today, the plugin exposes threshold and scan-scope configuration. Per-rule enable/disable,
+    severity overrides, and persistent allowlists are planned v1.1 work, not shipped behavior yet.
+  </p>
+</DocsLayout>

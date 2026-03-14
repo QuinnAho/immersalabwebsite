@@ -1,0 +1,53 @@
+# Legacy Rules Overview
+
+Blueprint Health Analyzer includes 13 built-in rules organized into four categories. Each rule detects a specific performance or maintainability issue.
+
+## Blueprint Rules
+
+| Rule ID | Name | Default Severity |
+|---------|------|------------------|
+| [BP-TICK-001](/blueprint-health-analyzer/docs/rules/bp-tick-001/) | Event Tick Usage | Warning |
+| [BP-REF-001](/blueprint-health-analyzer/docs/rules/bp-ref-001/) | Hard Reference Cascade | Critical |
+| [BP-CMPLX-001](/blueprint-health-analyzer/docs/rules/bp-cmplx-001/) | Graph Complexity | Warning |
+| [BP-CAST-001](/blueprint-health-analyzer/docs/rules/bp-cast-001/) | Blueprint Cast Chains | Warning |
+| [BP-GETALL-001](/blueprint-health-analyzer/docs/rules/bp-getall-001/) | GetAllActorsOfClass Usage | Warning |
+
+## Material Rules
+
+| Rule ID | Name | Default Severity |
+|---------|------|------------------|
+| [MAT-INST-001](/blueprint-health-analyzer/docs/rules/mat-inst-001/) | Shader Instruction Budget | Critical |
+| [MAT-PERM-001](/blueprint-health-analyzer/docs/rules/mat-perm-001/) | Static Switch Permutations | Warning |
+| [MAT-TEX-001](/blueprint-health-analyzer/docs/rules/mat-tex-001/) | Texture Sample Count | Critical |
+
+## Asset Rules
+
+| Rule ID | Name | Default Severity |
+|---------|------|------------------|
+| [AST-UNUSED-001](/blueprint-health-analyzer/docs/rules/ast-unused-001/) | Unused Assets | Warning |
+| [AST-TEX-001](/blueprint-health-analyzer/docs/rules/ast-tex-001/) | Texture Settings | Warning |
+| [AST-MESH-001](/blueprint-health-analyzer/docs/rules/ast-mesh-001/) | Mesh Optimization | Warning |
+
+## VFX & Rendering Rules
+
+| Rule ID | Name | Default Severity |
+|---------|------|------------------|
+| [NIA-GPU-001](/blueprint-health-analyzer/docs/rules/nia-gpu-001/) | Niagara GPU Budget | Warning |
+| [RND-SET-001](/blueprint-health-analyzer/docs/rules/rnd-set-001/) | Rendering Settings | Critical |
+
+## Severity Levels
+
+- **Critical**: Likely to cause noticeable performance issues or crashes. Fix before shipping.
+- **Warning**: May cause issues at scale or in specific conditions. Review and consider fixing.
+- **Info**: Informational finding that may or may not need action.
+- **Suggestion**: Best practice recommendation. Optional but recommended.
+
+## Configuring Rules
+
+You can configure rules in **Project Settings → Plugins → Blueprint Health Analyzer**:
+
+- **Enable/Disable**: Turn individual rules on or off
+- **Severity Override**: Change a rule's severity level
+- **Thresholds**: Adjust numeric limits (e.g., max nodes per graph)
+
+See [Configuration](/blueprint-health-analyzer/docs/configuration/) for details.

@@ -1,0 +1,51 @@
+---
+import type { RuleSeverity } from '../data/rules';
+
+interface Props {
+  severity: RuleSeverity;
+}
+
+const { severity } = Astro.props;
+const severityClass = severity.toLowerCase();
+---
+
+<span class={`severity-badge severity-badge--${severityClass}`}>{severity}</span>
+
+<style>
+  .severity-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.3rem 0.6rem;
+    border-radius: 6px;
+    font-size: 0.7rem;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    background: rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .severity-badge--critical {
+    color: #ff6b6b;
+    border-color: rgba(255, 107, 107, 0.2);
+  }
+
+  .severity-badge--warning {
+    color: #fca311;
+    border-color: rgba(252, 163, 17, 0.2);
+  }
+
+  .severity-badge--info {
+    color: #4da6ff;
+    border-color: rgba(77, 166, 255, 0.2);
+  }
+
+  .severity-badge--suggestion {
+    color: #69db7c;
+    border-color: rgba(105, 219, 124, 0.2);
+  }
+</style>

@@ -1,0 +1,302 @@
+---
+layout: ../../../../layouts/DocsLayout.astro
+title: MAT-PERM-001 Static Switch Permutations | Blueprint Health Analyzer
+description: Learn why static switch parameters cause shader permutation explosion and how to manage material variants efficiently.
+---
+
+import BlueprintViewer from '../../../../components/BlueprintViewer.astro';
+import SeverityBadge from '../../../../components/SeverityBadge.astro';
+
+# MAT-PERM-001: Static Switch Permutations
+
+<div class="rule-meta">
+  <SeverityBadge severity="Warning" />
+  <span class="category">Material</span>
+</div>
+
+## What This Rule Detects
+
+This rule flags materials with multiple Static Switch Parameters that create large permutation counts. Each static switch doubles the number of compiled shader variants:
+
+- 1 switch = 2 permutations
+- 2 switches = 4 permutations
+- 3 switches = 8 permutations
+- 5 switches = 32 permutations
+- 10 switches = 1,024 permutations
+
+The default threshold is 16 permutations before flagging.
+
+## Why This Matters
+
+### The Math Is Exponential (Immutable)
+
+This is one of the most mathematically defensible rules:
+
+**N static switches yields up to 2^N permutations.**
+
+| Switches | Permutations | Cook Time Multiplier |
+|----------|--------------|---------------------|
+| 1 | 2 | 2× |
+| 2 | 4 | 4× |
+| 4 | 16 | 16× |
+| 8 | 256 | 256× |
+| 10 | 1,024 | 1,024× |
+
+"Static" here means **compile-time**: static switches are like preprocessor-style compile-time decisions. The unused branch is removed entirely from the compiled shader, which is why they're runtime-cheap but build-expensive.
+
+### Three Separate Budgets Affected
+
+Permutations impact three distinct budgets:
+
+| Budget | Impact | Who Feels It |
+|--------|--------|--------------|
+| **Cook time** | Each permutation compiles separately | CI pipelines, devs iterating |
+| **Shader cache size** | Each permutation ships as separate binary | Package size, install time |
+| **PSO precaching** | Each permutation needs PSO entry | Load times, runtime hitches |
+
+### UE5 Improvements (Acknowledge Progress)
+
+UE 5.4 includes a shader compilation overhaul that reports ~30% fewer shaders compiled and reductions in redundant work. UE 5.7 adds an asset registry tag to help find material instances causing shader permutations, and a configurable option that can save "50k shaders / 15 MiB at runtime" in some cases.
+
+**However**, permutation explosion still multiplies work and should still be controlled. The improvements help *after* you've addressed the source.
+
+### Published Benchmarks
+
+Epic's guidance suggests:
+- 32 permutations adds ~10-15 seconds per material to cook time
+- 256 permutations can add 5-7 minutes per material
+- Each permutation is ~200-500KB on desktop, ~50-100KB on mobile
+
+**Real Example**: A "master material" with 8 static switches (detail normals, parallax, wetness, snow, damage, emissive, wind, subsurface) creates 256 permutations. Used on 10 material instances, that's 2,560 shader variants to compile, cache, and load.
+
+## When This Is Acceptable
+
+- **Platform-specific switches**: Mobile vs PC quality (2 permutations)
+- **Major feature toggles**: With/without tessellation (2 permutations)
+- **Controlled artist workflows**: Limited switch combinations are validated
+- **Shipping products**: Already profiled and accepted the compile/memory cost
+
+## The Problem
+
+<BlueprintViewer
+  title="Permutation explosion is exponential"
+  caption="Each additional static switch doubles the total permutation count."
+  highlights={[
+    'Permutations = 2^(number of static switches)',
+    'Each permutation compiles and ships separately',
+    'Combinations multiply even if unused'
+  ]}
+/>
+
+### Permutation Growth
+
+```
+Material: M_MasterEnvironment
+├── Switch: Use Detail Normal        → 2 permutations
+├── Switch: Use Parallax Occlusion   → 4 permutations
+├── Switch: Use Wetness              → 8 permutations
+├── Switch: Use Snow Coverage        → 16 permutations
+├── Switch: Use Damage Blend         → 32 permutations
+├── Switch: Use Emissive             → 64 permutations
+├── Switch: Use Wind Animation       → 128 permutations
+└── Switch: Use Subsurface           → 256 permutations
+
+Result: 256 shader variants per material instance
+Cook impact: ~25 minutes additional compile time
+Memory: ~50 MB additional shader cache
+```
+
+### The Risk Score
+
+```
+EstimatedPermutations = 2 ^ StaticSwitchCount
+
+Threshold: 16 permutations (default, ~4 switches)
+```
+
+## The Fix
+
+### Option 1: Use Material Layers Instead
+
+Material Layers let you compose features without static switches:
+
+**Before (static switches):**
+```
+M_MasterMaterial
+├── Switch: Detail Normal
+├── Switch: Wetness
+├── Switch: Snow
+└── 8 permutations
+```
+
+**After (material layers):**
+```
+M_Base (no switches)
+ML_DetailNormal (layer)
+ML_Wetness (layer)
+ML_Snow (layer)
+
+Combine at runtime without permutation explosion
+```
+
+Material Layers compile once and blend at runtime. Trade slight runtime cost for massive compile/memory savings.
+
+### Option 2: Separate Materials
+
+Split the master material into purpose-built variants:
+
+**Before:**
+```
+M_MasterEnvironment (8 switches = 256 permutations)
+  └── Used by: Props, Walls, Floors, Foliage
+```
+
+**After:**
+```
+M_Environment_Standard (0 switches = 1 permutation)
+M_Environment_Wet (1 switch = 2 permutations)
+M_Environment_Foliage (wind, 1 switch = 2 permutations)
+
+Total: 5 permutations vs 256
+```
+
+### Option 3: Use Quality Switches Sparingly
+
+Reserve static switches for truly static platform differences:
+
+**Acceptable:**
+```
+Switch: High Quality Mode
+  → True: Full PBR + detail maps
+  → False: Simple mobile shading
+
+Only 2 permutations, controlled by platform
+```
+
+**Avoid:**
+```
+Switch: Has Detail Normal
+Switch: Has Detail Roughness
+Switch: Has Detail Color
+Switch: Has Macro Normal
+
+16 permutations for features that could be runtime parameters
+```
+
+### Option 4: Convert to Material Functions
+
+Move complexity into shared functions:
+
+**Before:**
+```
+M_Environment (in each material)
+  → Static Switch: Snow
+  → [40 nodes of snow logic]
+```
+
+**After:**
+```
+MF_SnowBlend (shared function)
+  → Input: Enable (scalar parameter, 0 or 1)
+  → [Snow logic with Lerp based on Enable]
+
+M_Environment
+  → MF_SnowBlend (Enable bound to scalar)
+```
+
+The scalar parameter is runtime, not a static switch. One permutation, snow controlled per-instance.
+
+### Option 5: Use Feature Levels
+
+Let the material system handle platform differences:
+
+```
+Material Expression: Feature Level Switch
+  → ES3.1: Simple path
+  → SM5: Complex path
+  → SM6: Ray-traced path
+
+Automatic permutation management by target platform
+```
+
+### Option 6: Audit Used Combinations
+
+If you must keep switches, ensure you're not compiling unused combinations:
+
+1. List all material instances using the parent
+2. Document which switch combinations are actually used
+3. Consider splitting into multiple parents that match actual usage
+
+**Example audit:**
+```
+M_MasterRock (5 switches = 32 theoretical permutations)
+
+Actual usage:
+- MI_Rock_Standard: All switches OFF (1 permutation)
+- MI_Rock_Wet: Wetness ON (1 permutation)
+- MI_Rock_Snow: Snow ON (1 permutation)
+- MI_Rock_Moss: Detail ON (1 permutation)
+
+Actual: 4 permutations used out of 32 possible
+Consider: 4 separate materials instead of 1 master with switches
+```
+
+## Static Switch vs Runtime Parameter
+
+| Aspect | Static Switch | Runtime Parameter |
+|--------|---------------|-------------------|
+| Permutations | 2× per switch | None |
+| Runtime cost | Zero | Lerp/branch per pixel |
+| Memory | Separate shader per combo | Single shader |
+| Cook time | Multiplied | Unchanged |
+| Instance control | Per-instance | Per-instance |
+
+**Rule of thumb**: Use static switches only when the runtime cost is unacceptable (complex features like tessellation, ray tracing, or platform-specific code paths).
+
+## Identifying Static Switches
+
+In the Material Editor:
+
+1. Open the Material
+2. Look for "Static Switch Parameter" nodes
+3. Check the Material Instance for exposed switches
+4. Count total switches including inherited from parent
+
+Static Switch Parameters appear in Material Instances with checkboxes instead of sliders.
+
+## Configuration
+
+**Threshold**: Maximum permutation count before flagging (default: 16)
+
+To adjust in Project Settings:
+```
+Blueprint Health Analyzer → Rule Thresholds → MAT-PERM-001 → 32.0
+```
+
+Higher thresholds for projects with validated master material workflows. Lower thresholds (8) for mobile or Switch where shader cache size matters.
+
+## Related Rules
+
+- [MAT-INST-001](/blueprint-health-analyzer/docs/rules/mat-inst-001/) - High instruction counts combine with permutations
+- [MAT-TEX-001](/blueprint-health-analyzer/docs/rules/mat-tex-001/) - Texture samples also multiply with permutations
+- [AST-TEX-001](/blueprint-health-analyzer/docs/rules/ast-tex-001/) - Texture memory compounds the permutation cost
+
+<style>
+{`
+  .rule-meta {
+    display: flex;
+    gap: 0.75rem;
+    margin-bottom: 2rem;
+  }
+
+  .category {
+    display: inline-block;
+    padding: 0.3rem 0.75rem;
+    font-size: 0.8rem;
+    font-weight: 500;
+    background: var(--color-surface-muted);
+    color: var(--color-text-muted);
+    border-radius: 4px;
+  }
+`}
+</style>

@@ -1,0 +1,232 @@
+---
+layout: ../../../../layouts/DocsLayout.astro
+title: AST-TEX-001 Texture Health | Blueprint Health Analyzer
+description: Learn how to identify and fix texture issues including oversized dimensions, missing mipmaps, and compression problems.
+---
+
+import BlueprintViewer from '../../../../components/BlueprintViewer.astro';
+import SeverityBadge from '../../../../components/SeverityBadge.astro';
+
+# AST-TEX-001: Texture Health
+
+<div class="rule-meta">
+  <SeverityBadge severity="Warning" />
+  <span class="category">Asset</span>
+</div>
+
+## What This Rule Detects
+
+This rule flags textures with one or more of these issues:
+- **Over budget**: Maximum dimension exceeds threshold (default: 4096 pixels)
+- **Non-power-of-two**: Dimensions aren't powers of 2 (128, 256, 512, 1024, etc.)
+- **Missing mipmaps**: No mip chain for runtime textures
+- **Compression issues**: Uncompressed or using editor-only compression
+
+## Why This Matters
+
+### Memory Math (Deterministic)
+
+Texture memory follows deterministic formulas you can calculate exactly:
+
+**Uncompressed RGBA8 (4 bytes/pixel):**
+
+| Resolution | Memory | Calculation |
+|------------|--------|-------------|
+| 1024×1024 | ~4 MB | 1,048,576 × 4 bytes |
+| 2048×2048 | ~16 MB | 4,194,304 × 4 bytes |
+| 4096×4096 | ~64 MB | 16,777,216 × 4 bytes |
+| 8192×8192 | ~256 MB | 67,108,864 × 4 bytes |
+
+**Mipmap overhead**: A full mip chain adds approximately **33%** to base memory. A 4K texture with mipmaps uses ~85 MB instead of ~64 MB—but this is a worthwhile trade for reduced bandwidth and aliasing.
+
+### Compression Ratios (Hardware Facts)
+
+BC formats compress fixed 4×4 pixel blocks:
+
+| Format | Bits/Block | Compression | Use Case |
+|--------|------------|-------------|----------|
+| BC1/DXT1 | 64 bits | 8:1 | RGB diffuse, no alpha |
+| BC3/DXT5 | 128 bits | 4:1 | RGBA with alpha |
+| BC4 | 64 bits | 8:1 | Single channel (grayscale) |
+| BC5 | 128 bits | 4:1 | Two channels (normal maps) |
+| BC6H | 128 bits | 6:1 | HDR RGB (no alpha) |
+| BC7 | 128 bits | 4:1 | High-quality RGBA |
+
+A 4K BC1 texture uses ~8 MB instead of ~64 MB uncompressed—8× savings.
+
+### Why Mipmaps Matter
+
+Mipmaps reduce **bandwidth** and **aliasing** at distance:
+
+- **Bandwidth**: Lower mips fetch fewer bytes per sample
+- **Cache efficiency**: Mip selection puts hot data in cache
+- **Visual stability**: Prevents shimmer/moiré at distance
+
+Platform documentation (Apple, Android, console TRCs) explicitly describes mipmaps as reducing bandwidth and improving sampling performance while reducing aliasing artifacts.
+
+**Real Example**: A project with 200 textures at 4K instead of 2K wastes ~10 GB of memory. Downscaling appropriately can halve package size and dramatically improve load times.
+
+### How to Verify
+
+1. Select texture in Content Browser
+2. Open **Size Map** (right-click → Asset Actions → Size Map)
+3. Check the **Statistics** panel in Texture Editor
+4. Use `stat Memory` in PIE to see runtime texture pool usage
+
+## When This Is Acceptable
+
+- **Hero textures**: Key character faces, marketing materials, or signature assets where maximum quality is required
+- **UI textures**: Some UI elements legitimately need non-power-of-two dimensions (though consider using UserInterface compression)
+- **Intentional settings**: Textures with specific compression requirements for technical reasons (normal maps, masks, etc.)
+
+## The Problem
+
+<BlueprintViewer
+  title="Common texture health issues"
+  caption="Textures imported without optimization settings waste memory and hurt performance."
+  highlights={[
+    'Oversized textures that exceed target platform budgets',
+    'Missing mipmaps causing aliasing and wasted bandwidth',
+    'Uncompressed textures using 4-8x more memory than needed'
+  ]}
+/>
+
+### Issue 1: Oversized Textures
+
+```
+T_Hero_Diffuse.uasset
+├── Imported size: 8192 x 8192   ← Way over budget
+├── Actual visible detail: 2K equivalent
+└── Memory cost: ~256 MB (vs ~16 MB at 2K)
+```
+
+Just because your source texture is 8K doesn't mean the game needs 8K. Evaluate actual viewing distances and detail requirements.
+
+### Issue 2: Non-Power-of-Two Dimensions
+
+```
+T_Background_Pattern.uasset
+├── Size: 1920 x 1080           ← NPOT dimensions
+├── Can't use BC compression efficiently
+├── May cause GPU cache issues
+└── Streaming system works less efficiently
+```
+
+Power-of-two dimensions (256, 512, 1024, 2048, 4096) allow hardware compression, efficient mipmapping, and optimal memory alignment.
+
+### Issue 3: Missing Mipmaps
+
+```
+T_Floor_Tile.uasset
+├── Size: 2048 x 2048
+├── Mip levels: 1               ← No mipmap chain
+├── At distance: samples full 2K for 10 pixels on screen
+└── Causes aliasing shimmer and wasted bandwidth
+```
+
+Without mipmaps, the GPU samples the full texture even when the object is far away, wasting bandwidth and causing visual artifacts.
+
+### Issue 4: Uncompressed/Editor-Only Compression
+
+```
+T_Character_Normal.uasset
+├── Compression: None           ← No compression
+├── Memory: 64 MB
+├── With BC5: ~16 MB
+└── Visual difference: minimal
+```
+
+Uncompressed textures take 4-8x more memory than compressed equivalents with minimal visual difference for most use cases.
+
+## The Fix
+
+### Option 1: Set Appropriate Maximum Size
+
+In Texture Editor → Details:
+
+1. Set **Maximum Texture Size** to match your actual needs
+2. Common targets:
+   - Characters/Props: 2048
+   - Environment: 1024-2048
+   - UI: 512-1024
+   - Effects: 256-512
+
+The engine will downscale on import while preserving the source file for future re-imports.
+
+### Option 2: Fix Non-Power-of-Two Dimensions
+
+**Best**: Re-export source texture at power-of-two dimensions:
+- 1920 x 1080 → 2048 x 1024 (or 2048 x 2048)
+- 1000 x 1000 → 1024 x 1024
+
+**Alternative**: Enable **Power of Two Mode** in texture settings:
+- "Pad to Power of Two" adds black borders
+- "Stretch to Power of Two" stretches content
+
+For UI textures, non-power-of-two is often acceptable—use **UserInterface2D** compression.
+
+### Option 3: Enable Mipmaps
+
+In Texture Editor → Details → Level of Detail:
+
+1. Set **Mip Gen Settings** to **FromTextureGroup** or **SimpleAverage**
+2. Verify **Never Stream** is disabled (unless intentional)
+3. Check the texture preview shows multiple mip levels
+
+**When to skip mipmaps:**
+- UI textures that are always viewed at exact size
+- Lookup tables (LUTs) and data textures
+- Textures smaller than 64x64
+
+### Option 4: Choose Correct Compression
+
+| Texture Type | Recommended Compression |
+|-------------|------------------------|
+| Diffuse/Albedo | Default (DXT1/BC1) |
+| Normal Maps | Normalmap (BC5) |
+| Masks (RGB) | Masks (no sRGB) |
+| UI Elements | UserInterface2D |
+| HDR/Linear | HDR (BC6H) |
+| Alpha Masks | Alpha (DXT5/BC3) |
+
+In Texture Editor → Details → Compression:
+1. Set **Compression Settings** to appropriate type
+2. Disable **sRGB** for non-color data (normals, masks, roughness)
+3. Verify **Compress Without Alpha** if alpha channel is unused
+
+## Configuration
+
+**Threshold**: Maximum texture dimension (default: 4096 pixels)
+
+To adjust in Project Settings:
+```
+Blueprint Health Analyzer → Rule Thresholds → AST-TEX-001 → 2048.0
+```
+
+Lower thresholds (2048) are appropriate for mobile or projects prioritizing memory. Higher thresholds (8192) may be acceptable for high-end PC projects.
+
+## Related Rules
+
+- [AST-UNUSED-001](/blueprint-health-analyzer/docs/rules/ast-unused-001/) - Unused textures wasting disk space
+- [MAT-TEX-001](/blueprint-health-analyzer/docs/rules/mat-tex-001/) - Materials sampling too many textures
+- [AST-MESH-001](/blueprint-health-analyzer/docs/rules/ast-mesh-001/) - Mesh optimization issues
+
+<style>
+{`
+  .rule-meta {
+    display: flex;
+    gap: 0.75rem;
+    margin-bottom: 2rem;
+  }
+
+  .category {
+    display: inline-block;
+    padding: 0.3rem 0.75rem;
+    font-size: 0.8rem;
+    font-weight: 500;
+    background: var(--color-surface-muted);
+    color: var(--color-text-muted);
+    border-radius: 4px;
+  }
+`}
+</style>

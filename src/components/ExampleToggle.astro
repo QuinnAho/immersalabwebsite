@@ -1,0 +1,113 @@
+---
+/**
+ * ExampleToggle - Compact problem/fix toggle for Blueprint examples.
+ * ESLint-style: no fluff, just the essential interaction.
+ */
+
+interface Props {
+  problemId: string;
+  fixId: string;
+  problemText: string;
+  fixText: string;
+}
+
+const { problemId, fixId, problemText, fixText } = Astro.props;
+---
+
+<div class="example-toggle" data-example-toggle>
+  <button
+    type="button"
+    class="example-toggle__btn example-toggle__btn--problem"
+    data-example-trigger={problemId}
+    data-blueprint-text={encodeURIComponent(problemText)}
+    data-blueprint-state="problem"
+    data-active="true"
+  >
+    Problem
+  </button>
+  <button
+    type="button"
+    class="example-toggle__btn example-toggle__btn--fix"
+    data-example-trigger={fixId}
+    data-blueprint-text={encodeURIComponent(fixText)}
+    data-blueprint-state="fix"
+  >
+    Fix
+  </button>
+</div>
+
+<script>
+  function setupExampleToggles() {
+    document.querySelectorAll('[data-example-toggle]').forEach((toggle) => {
+      if (toggle.hasAttribute('data-init')) return;
+      toggle.setAttribute('data-init', 'true');
+
+      const buttons = toggle.querySelectorAll('[data-example-trigger]');
+      buttons.forEach((btn) => {
+        btn.addEventListener('click', () => {
+          // Update active state
+          buttons.forEach((b) => b.setAttribute('data-active', 'false'));
+          btn.setAttribute('data-active', 'true');
+
+          // Dispatch viewer event
+          const encodedText = btn.getAttribute('data-blueprint-text') || '';
+          const blueprintText = encodedText ? decodeURIComponent(encodedText) : '';
+          const state = btn.getAttribute('data-blueprint-state') as 'problem' | 'fix';
+          const exampleId = btn.getAttribute('data-example-trigger') || '';
+
+          if (blueprintText) {
+            document.dispatchEvent(
+              new CustomEvent('blueprint-viewer:open', {
+                bubbles: true,
+                detail: { exampleId, blueprintText, state, title: state === 'fix' ? 'Fix' : 'Problem' },
+              })
+            );
+          }
+        });
+      });
+    });
+  }
+
+  setupExampleToggles();
+  document.addEventListener('astro:page-load', setupExampleToggles);
+</script>
+
+<style>
+  .example-toggle {
+    display: inline-flex;
+    gap: 0;
+    border-radius: 6px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .example-toggle__btn {
+    appearance: none;
+    border: none;
+    background: transparent;
+    color: var(--color-text-muted);
+    padding: 0.4rem 0.75rem;
+    font: inherit;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    transition: background 0.15s, color 0.15s;
+  }
+
+  .example-toggle__btn:not(:last-child) {
+    border-right: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .example-toggle__btn:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--color-text);
+  }
+
+  .example-toggle__btn[data-active='true'] {
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+  }
+</style>

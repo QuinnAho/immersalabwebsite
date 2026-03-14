@@ -1,0 +1,167 @@
+---
+layout: ../../../../layouts/DocsLayout.astro
+title: BP-CAST-001 Cast Chain Analysis | Blueprint Health Analyzer
+description: Learn why excessive dynamic casts to Blueprint classes hurt performance and memory, and how to use interfaces instead.
+---
+
+import ExampleToggle from '../../../../components/ExampleToggle.astro';
+import SeverityBadge from '../../../../components/SeverityBadge.astro';
+import { bpCastRuleExamples } from '../../../../data/ruleBlueprintExamples';
+
+# BP-CAST-001
+
+<div class="rule-meta">
+  <SeverityBadge severity="Warning" />
+  <span class="category">Blueprint</span>
+  <span class="rule-title">Dynamic Cast Chain</span>
+</div>
+
+<div class="rule-summary">
+Flags Blueprints with multiple dynamic casts to other Blueprint classes. The real cost isn't the cast itself—it's the hard reference that forces the target Blueprint to load when the casting Blueprint loads.
+</div>
+
+<aside class="rule-quick">
+  <div class="rule-quick__section">
+    <h4>Threshold</h4>
+    <code>4</code> risky casts
+  </div>
+  <div class="rule-quick__section">
+    <h4>Measure</h4>
+    Right-click → <strong>Reference Viewer</strong>
+  </div>
+  <div class="rule-quick__section">
+    <h4>Fix</h4>
+    Blueprint Interfaces
+  </div>
+</aside>
+
+---
+
+## Why It Matters
+
+Casting has **two separate costs**:
+
+| Cost | When | Impact |
+|------|------|--------|
+| Runtime | Each cast executes | ~0.05ms (minor) |
+| Load | Casting Blueprint loads | MBs of memory (major) |
+
+**The key insight**: Casting to `BP_Enemy` embeds a hard reference. When your Blueprint loads, `BP_Enemy` + all its dependencies load too—even if the cast never runs.
+
+<ExampleToggle
+  problemId="bp-cast-problem"
+  fixId="bp-cast-fix"
+  problemText={bpCastRuleExamples[0].blueprintText}
+  fixText={bpCastRuleExamples[1].blueprintText}
+/>
+
+---
+
+## When It's Acceptable
+
+- **Framework casts**: GameInstance, GameMode, PlayerController (singletons)
+- **Native C++ casts**: No Blueprint dependency loading
+- **Same-package casts**: Already share dependencies
+
+---
+
+## The Fix
+
+### Option 1: Blueprint Interfaces (Recommended)
+
+```
+Before: Get Actor → Cast to BP_Enemy → Call TakeDamage
+After:  Get Actor → Does Implement Interface? → Call TakeDamage (Message)
+```
+
+No hard reference to the implementation class.
+
+### Option 2: Cache Cast Results
+
+Cast once in BeginPlay, store the result.
+
+### Option 3: C++ Base Class
+
+Cast to a C++ parent class instead of the Blueprint child.
+
+---
+
+## Configuration
+
+```
+Project Settings → Blueprint Health Analyzer → BP-CAST-001 → 6.0
+```
+
+---
+
+## Related
+
+- [BP-REF-001](/blueprint-health-analyzer/docs/rules/bp-ref-001/) — Hard reference cascades
+- [BP-TICK-001](/blueprint-health-analyzer/docs/rules/bp-tick-001/) — Casts on Tick paths
+
+<style>
+{`
+  .rule-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .rule-title {
+    font-size: 1.1rem;
+    font-weight: 500;
+    color: var(--color-text);
+    margin-left: 0.25rem;
+  }
+
+  .category {
+    display: inline-block;
+    padding: 0.25rem 0.6rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    background: var(--color-surface-muted);
+    color: var(--color-text-muted);
+    border-radius: 4px;
+  }
+
+  .rule-summary {
+    font-size: 1.05rem;
+    color: var(--color-text-muted);
+    line-height: 1.6;
+    margin-bottom: 1.5rem;
+  }
+
+  .rule-quick {
+    display: flex;
+    gap: 2rem;
+    padding: 1rem 1.25rem;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
+  }
+
+  .rule-quick__section h4 {
+    margin: 0 0 0.25rem 0;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-text-muted);
+  }
+
+  .rule-quick__section code,
+  .rule-quick__section strong {
+    font-size: 0.9rem;
+    color: var(--color-text);
+  }
+
+  @media (max-width: 600px) {
+    .rule-quick {
+      flex-direction: column;
+      gap: 1rem;
+    }
+  }
+`}
+</style>

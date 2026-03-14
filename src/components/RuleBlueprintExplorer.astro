@@ -1,0 +1,51 @@
+---
+/**
+ * RuleBlueprintExplorer - Container for rule documentation with Blueprint examples
+ *
+ * This component wraps rule documentation content that includes Blueprint examples.
+ * The actual viewer is now in the persistent BlueprintViewerPanel in the layout.
+ * This component just provides context and styling for the content.
+ */
+
+interface Props {
+  /** Optional note displayed at the top of the explorer section */
+  note?: string;
+}
+
+const { note } = Astro.props;
+---
+
+<section class="rule-blueprint-explorer">
+  {note && (
+    <div class="rule-blueprint-explorer__note">
+      <p>{note}</p>
+    </div>
+  )}
+  <div class="rule-blueprint-explorer__content">
+    <slot />
+  </div>
+</section>
+
+<style>
+  .rule-blueprint-explorer {
+    margin: 2rem 0;
+  }
+
+  .rule-blueprint-explorer__note {
+    margin-bottom: 1.5rem;
+    padding: 1rem 1.15rem;
+    border: 1px solid rgba(59, 130, 246, 0.2);
+    border-radius: 12px;
+    background: rgba(59, 130, 246, 0.05);
+  }
+
+  .rule-blueprint-explorer__note p {
+    margin: 0;
+    font-size: 0.9rem;
+    color: var(--color-text-muted);
+  }
+
+  .rule-blueprint-explorer__content {
+    /* Content flows naturally */
+  }
+</style>

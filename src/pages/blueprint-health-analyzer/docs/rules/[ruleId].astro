@@ -1,0 +1,93 @@
+---
+import DocsLayout from '../../../../layouts/DocsLayout.astro';
+import RuleCard from '../../../../components/RuleCard.astro';
+import SeverityBadge from '../../../../components/SeverityBadge.astro';
+import { ruleDocs } from '../../../../data/rules';
+
+export function getStaticPaths() {
+  return ruleDocs
+    .filter((rule) => rule.status === 'placeholder')
+    .map((rule) => ({
+      params: { ruleId: rule.slug },
+      props: { rule },
+    }));
+}
+
+const { rule } = Astro.props;
+const relatedRules = ruleDocs
+  .filter((candidate) => candidate.category === rule.category && candidate.slug !== rule.slug)
+  .slice(0, 2);
+---
+
+<DocsLayout title={`${rule.id} ${rule.title} | Blueprint Health Analyzer`} description={rule.summary}>
+  <h1>{rule.id}: {rule.title}</h1>
+
+  <div class="rule-header">
+    <SeverityBadge severity={rule.severity} />
+    <span class="rule-header__category">{rule.category}</span>
+    <span class="rule-header__status">Full guide in progress</span>
+  </div>
+
+  <p>{rule.summary}</p>
+
+  <div class="docs-callout">
+    This page exists so the docs site stays fully navigable during Phase 2. The full visual write-up
+    for this rule is Phase 3 work.
+  </div>
+
+  <h2>What To Expect In The Full Guide</h2>
+  <ul>
+    <li>Plain-English explanation of what the rule detects.</li>
+    <li>Why it matters, using concrete memory or frame-time numbers where available.</li>
+    <li>Problematic and fixed Blueprint or asset examples.</li>
+    <li>Specific fix steps and acceptable exemption contexts.</li>
+  </ul>
+
+  <h2>Need This Rule Right Now?</h2>
+  <p>
+    Use the in-plugin finding details first. The dashboard and remediation flow already provide the
+    issue title, severity, evidence, and recommendation text. This page will be expanded into the
+    full web reference in the next documentation pass.
+  </p>
+
+  {relatedRules.length > 0 && (
+    <>
+      <h2>Related Rules</h2>
+      <div class="docs-grid">
+        {relatedRules.map((relatedRule) => (
+          <RuleCard rule={relatedRule} />
+        ))}
+      </div>
+    </>
+  )}
+</DocsLayout>
+
+<style>
+  .rule-header {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: center;
+    margin-bottom: 1.5rem;
+  }
+
+  .rule-header__category,
+  .rule-header__status {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.35rem 0.75rem;
+    border-radius: 999px;
+    font-size: 0.8rem;
+  }
+
+  .rule-header__category {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--color-text-muted);
+  }
+
+  .rule-header__status {
+    background: rgba(245, 158, 11, 0.14);
+    color: #f7d28f;
+  }
+</style>

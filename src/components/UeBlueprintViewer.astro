@@ -1,0 +1,43 @@
+---
+interface Props {
+  blueprintText: string;
+  className?: string;
+  height?: string;
+}
+
+const {
+  blueprintText,
+  className = '',
+  height = 'min(68vh, 840px)',
+} = Astro.props;
+---
+
+<div class={`ue-blueprint-viewer ${className}`.trim()} style={`--ueb-height: ${height};`}>
+  <ueb-blueprint class="ue-blueprint-viewer__graph">
+    <template>{blueprintText}</template>
+  </ueb-blueprint>
+</div>
+
+<style>
+  .ue-blueprint-viewer {
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 18px;
+    overflow: hidden;
+    background:
+      radial-gradient(circle at top left, rgba(255, 255, 255, 0.08), transparent 40%),
+      rgba(6, 8, 12, 0.86);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.06),
+      0 24px 60px rgba(0, 0, 0, 0.3);
+  }
+
+  .ue-blueprint-viewer__graph {
+    display: block;
+    --ueb-height: var(--ueb-height);
+  }
+
+  .ue-blueprint-viewer :global(ueb-blueprint) {
+    display: block;
+    --ueb-height: var(--ueb-height);
+  }
+</style>

@@ -1,0 +1,175 @@
+---
+layout: ../../../../layouts/DocsLayout.astro
+title: BP-REF-001 Hard Reference Cascade | Blueprint Health Analyzer
+description: Learn why hard references in Blueprints cause memory bloat and how to fix them with soft references.
+---
+
+import ExampleToggle from '../../../../components/ExampleToggle.astro';
+import SeverityBadge from '../../../../components/SeverityBadge.astro';
+import { bpRefRuleExamples } from '../../../../data/ruleBlueprintExamples';
+
+# BP-REF-001
+
+<div class="rule-meta">
+  <SeverityBadge severity="Critical" />
+  <span class="category">Blueprint</span>
+  <span class="rule-title">Hard Reference Cascade</span>
+</div>
+
+<div class="rule-summary">
+Flags Blueprints that directly reference large assets as variables or defaults. Hard references load referenced assets into memory at class load time—before your code runs.
+</div>
+
+<aside class="rule-quick">
+  <div class="rule-quick__section">
+    <h4>Threshold</h4>
+    <code>50 MB</code> cascade size
+  </div>
+  <div class="rule-quick__section">
+    <h4>Measure</h4>
+    Right-click → <strong>Size Map</strong>
+  </div>
+  <div class="rule-quick__section">
+    <h4>Fix</h4>
+    <code>TSoftObjectPtr&lt;&gt;</code>
+  </div>
+</aside>
+
+---
+
+## Why It Matters
+
+**Hard references** resolve at load time. When Unreal loads your Blueprint, it follows every hard reference recursively—loading those assets **before any of your code runs**.
+
+| Reference Type | Load Behavior | Memory Impact |
+|----------------|---------------|---------------|
+| `UStaticMesh*` | Loaded when referencer loads | Immediate |
+| `TSoftObjectPtr<>` | Loaded on demand | Deferred |
+
+**Example**: A character that hard-references 20 weapons at 15MB each loads 300MB just to spawn—even if the player only uses one weapon.
+
+<ExampleToggle
+  problemId="bp-ref-problem"
+  fixId="bp-ref-fix"
+  problemText={bpRefRuleExamples[0].blueprintText}
+  fixText={bpRefRuleExamples[1].blueprintText}
+/>
+
+---
+
+## When It's Acceptable
+
+- **Always-needed assets**: The character's own skeletal mesh
+- **Small assets**: Tiny textures, simple meshes
+- **Singletons**: GameInstance referencing core systems
+
+---
+
+## The Fix
+
+### Option 1: Soft References (Recommended)
+
+```cpp
+// Before (hard reference)
+UPROPERTY(EditDefaultsOnly)
+UStaticMesh* WeaponMesh;
+
+// After (soft reference)
+UPROPERTY(EditDefaultsOnly)
+TSoftObjectPtr<UStaticMesh> WeaponMesh;
+
+// Load when needed
+UStaticMesh* Mesh = WeaponMesh.LoadSynchronous();
+```
+
+In Blueprints, use **Async Load Asset** to load soft references on demand.
+
+### Option 2: Data Tables
+
+Store asset paths in a Data Table (small reference), load meshes at runtime.
+
+### Option 3: Asset Manager
+
+For complex loading patterns, use Primary Asset Types and load bundles on demand.
+
+---
+
+## Configuration
+
+```
+Project Settings → Blueprint Health Analyzer → BP-REF-001 → 100.0
+```
+
+---
+
+## Related
+
+- [BP-CAST-001](/blueprint-health-analyzer/docs/rules/bp-cast-001/) — Casts create hard references
+- [AST-UNUSED-001](/blueprint-health-analyzer/docs/rules/ast-unused-001/) — Unused assets loaded via references
+
+<style>
+{`
+  .rule-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .rule-title {
+    font-size: 1.1rem;
+    font-weight: 500;
+    color: var(--color-text);
+    margin-left: 0.25rem;
+  }
+
+  .category {
+    display: inline-block;
+    padding: 0.25rem 0.6rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    background: var(--color-surface-muted);
+    color: var(--color-text-muted);
+    border-radius: 4px;
+  }
+
+  .rule-summary {
+    font-size: 1.05rem;
+    color: var(--color-text-muted);
+    line-height: 1.6;
+    margin-bottom: 1.5rem;
+  }
+
+  .rule-quick {
+    display: flex;
+    gap: 2rem;
+    padding: 1rem 1.25rem;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
+  }
+
+  .rule-quick__section h4 {
+    margin: 0 0 0.25rem 0;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-text-muted);
+  }
+
+  .rule-quick__section code,
+  .rule-quick__section strong {
+    font-size: 0.9rem;
+    color: var(--color-text);
+  }
+
+  @media (max-width: 600px) {
+    .rule-quick {
+      flex-direction: column;
+      gap: 1rem;
+    }
+  }
+`}
+</style>

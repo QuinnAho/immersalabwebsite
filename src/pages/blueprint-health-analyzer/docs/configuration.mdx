@@ -1,0 +1,160 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Configuration | Blueprint Health Analyzer
+description: Configure rules, thresholds, scan scope, and export settings for Blueprint Health Analyzer.
+---
+
+# Configuration
+
+Blueprint Health Analyzer can be configured through Project Settings or directly in the dashboard.
+
+## Accessing Settings
+
+**Project Settings** → **Plugins** → **Blueprint Health Analyzer**
+
+Or click the **Settings** button in the dashboard header.
+
+## Rule Configuration
+
+<div class="docs-callout">
+Current shipping state: threshold configuration is available today. The per-rule enable/disable and
+severity override examples below describe planned v1.1 functionality, not the current settings UI.
+</div>
+
+### Enable/Disable Rules
+
+Each of the 13 rules can be individually enabled or disabled:
+
+```
+☑ BP-TICK-001  Event Tick Usage
+☑ BP-REF-001   Hard Reference Cascade
+☐ BP-CMPLX-001 Graph Complexity (disabled)
+...
+```
+
+Disabled rules won't generate findings during scans.
+
+### Severity Overrides
+
+Change the severity level of any rule:
+
+| Rule | Default | Override |
+|------|---------|----------|
+| BP-REF-001 | Critical | → Warning |
+| AST-UNUSED-001 | Warning | → Suggestion |
+
+Options: Critical, Warning, Info, Suggestion, or Disabled.
+
+### Thresholds
+
+Many rules have configurable thresholds:
+
+| Rule | Setting | Default | Description |
+|------|---------|---------|-------------|
+| BP-CMPLX-001 | Max Nodes | 200 | Maximum nodes per graph |
+| BP-REF-001 | Cascade Threshold | 50 MB | Memory cascade limit |
+| MAT-INST-001 | Instruction Limit | 300 | Max shader instructions |
+| MAT-TEX-001 | Sample Limit | 16 | Max texture samples |
+
+Thresholds are the rule-level configuration that exists today.
+
+## Scan Scope
+
+### Include Paths
+
+Limit scans to specific folders:
+
+```
+/Game/Characters/
+/Game/Weapons/
+/MyPlugin/
+```
+
+### Exclude Paths
+
+Skip folders from all scans:
+
+```
+/Game/Developers/
+/Game/Test/
+```
+
+### Plugin Content Mount Points
+
+You can add plugin roots such as `/MyPlugin/` to the include list so scans cover plugin content in
+addition to `/Game/`.
+
+### Template Content Exclusions
+
+<div class="docs-callout">
+This section is release-plan scope, not current shipped behavior. Default template-content exclusion
+toggles have not been implemented yet.
+</div>
+
+By default, common Epic template content is excluded:
+
+- **Exclude Engine Content**: `/Engine/*` (default: enabled)
+- **Exclude Epic Template Content**: StarterContent, Mannequins, etc. (default: enabled)
+
+These can be toggled in settings if you need to scan template content.
+
+## Export Settings
+
+### Default Export Directory
+
+Where reports are saved:
+
+```
+C:/Projects/MyGame/Reports/
+```
+
+### Default Export Format
+
+- **JSON**: Machine-readable, CI-friendly
+- **CSV**: Spreadsheet-compatible
+
+## Configuration Export/Import
+
+<div class="docs-callout">
+Today, threshold values can be exported and imported. Full configuration export/import, including
+future rule enable states and severity overrides, is planned v1.1 work.
+</div>
+
+Share settings across projects or team members:
+
+1. Click **Export Configuration** in settings
+2. Save the JSON file
+3. On another project, click **Import Configuration**
+4. Select the JSON file
+
+Exported configuration includes:
+- Enabled/disabled rules
+- Severity overrides
+- Threshold values
+- Include/exclude paths
+
+## Recommended Configurations
+
+### CI Pipeline
+
+For automated builds, use strict settings:
+
+- All rules enabled
+- Critical severity on memory rules
+- Export JSON format
+- Fail build on any Critical finding
+
+### Development
+
+During active development, reduce noise:
+
+- Higher thresholds for work-in-progress content
+- Narrow scan scope to the folders or plugin roots you are actively touching
+
+### Pre-Ship Audit
+
+Before release, maximum scrutiny:
+
+- Default thresholds (or stricter)
+- Include all content that is in shipping scope
+- Manual review of every Critical finding

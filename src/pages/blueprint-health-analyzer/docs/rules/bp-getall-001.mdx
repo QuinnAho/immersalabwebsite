@@ -1,0 +1,186 @@
+---
+layout: ../../../../layouts/DocsLayout.astro
+title: BP-GETALL-001 World Query Detection | Blueprint Health Analyzer
+description: Learn why GetAllActorsOfClass and similar world queries cause performance problems and how to replace them with efficient alternatives.
+---
+
+import ExampleToggle from '../../../../components/ExampleToggle.astro';
+import SeverityBadge from '../../../../components/SeverityBadge.astro';
+import { bpGetallRuleExamples } from '../../../../data/ruleBlueprintExamples';
+
+# BP-GETALL-001
+
+<div class="rule-meta">
+  <SeverityBadge severity="Warning" />
+  <span class="category">Blueprint</span>
+  <span class="rule-title">World Query</span>
+</div>
+
+<div class="rule-summary">
+Flags GetAllActorsOfClass and similar world queries. Cost scales with total actor count in the world, not matching count. Epic's API docs explicitly warn about performance.
+</div>
+
+<aside class="rule-quick">
+  <div class="rule-quick__section">
+    <h4>Threshold</h4>
+    <code>1.0</code> weighted score
+  </div>
+  <div class="rule-quick__section">
+    <h4>Measure</h4>
+    <code>stat game</code> in console
+  </div>
+  <div class="rule-quick__section">
+    <h4>Fix</h4>
+    Registration Pattern
+  </div>
+</aside>
+
+---
+
+## Why It Matters
+
+**Epic's official warning**: "GetAllActorsOfClass will be slow when there are many actors."
+
+| Function | Iterates | 500 Actors |
+|----------|----------|------------|
+| GetAllActorsOfClass | Class hierarchy | ~0.08ms |
+| GetAllActorsWithTag | ALL actors | ~0.20ms |
+| GetAllActorsWithInterface | ALL actors | ~0.25ms |
+
+Tag/Interface variants are 2-3× slower—they check every single actor.
+
+<ExampleToggle
+  problemId="bp-getall-problem"
+  fixId="bp-getall-fix"
+  problemText={bpGetallRuleExamples[0].blueprintText}
+  fixText={bpGetallRuleExamples[1].blueprintText}
+/>
+
+---
+
+## When It's Acceptable
+
+- **BeginPlay**: Runs once at spawn
+- **Construction Script**: Runs once when placed
+- **Slow timers (>5s)**: Periodic cleanup
+- **Editor-only code**: Debugging tools
+
+---
+
+## The Fix
+
+### Option 1: Registration Pattern (Recommended)
+
+Actors announce themselves instead of being searched for:
+
+```
+// BP_Pickup BeginPlay:
+Get GameMode → Call RegisterPickup(self)
+
+// BP_Pickup EndPlay:
+Get GameMode → Call UnregisterPickup(self)
+
+// GameMode maintains ActivePickups array
+// Any query: just return the array (O(1) vs O(n))
+```
+
+### Option 2: Cache Results
+
+Query once in BeginPlay, store in variable.
+
+### Option 3: Spatial Queries
+
+For "find nearby", use SphereOverlap instead—uses spatial acceleration.
+
+---
+
+## Context Severity
+
+| Context | Frequency | Severity |
+|---------|-----------|----------|
+| Event Tick | 60/sec | Critical |
+| Fast Timer (under 0.1s) | 10+/sec | Critical |
+| Timer (0.5s) | 2/sec | Warning |
+| BeginPlay | Once | Info |
+
+---
+
+## Configuration
+
+```
+Project Settings → Blueprint Health Analyzer → BP-GETALL-001 → 2.0
+```
+
+---
+
+## Related
+
+- [BP-TICK-001](/blueprint-health-analyzer/docs/rules/bp-tick-001/) — GetAllActors on Tick
+- [BP-CAST-001](/blueprint-health-analyzer/docs/rules/bp-cast-001/) — Casting results
+
+<style>
+{`
+  .rule-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .rule-title {
+    font-size: 1.1rem;
+    font-weight: 500;
+    color: var(--color-text);
+    margin-left: 0.25rem;
+  }
+
+  .category {
+    display: inline-block;
+    padding: 0.25rem 0.6rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    background: var(--color-surface-muted);
+    color: var(--color-text-muted);
+    border-radius: 4px;
+  }
+
+  .rule-summary {
+    font-size: 1.05rem;
+    color: var(--color-text-muted);
+    line-height: 1.6;
+    margin-bottom: 1.5rem;
+  }
+
+  .rule-quick {
+    display: flex;
+    gap: 2rem;
+    padding: 1rem 1.25rem;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
+  }
+
+  .rule-quick__section h4 {
+    margin: 0 0 0.25rem 0;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-text-muted);
+  }
+
+  .rule-quick__section code,
+  .rule-quick__section strong {
+    font-size: 0.9rem;
+    color: var(--color-text);
+  }
+
+  @media (max-width: 600px) {
+    .rule-quick {
+      flex-direction: column;
+      gap: 1rem;
+    }
+  }
+`}
+</style>

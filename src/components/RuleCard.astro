@@ -1,0 +1,101 @@
+---
+import type { RuleDocMetadata } from '../data/rules';
+import { getRuleHref } from '../data/rules';
+import SeverityBadge from './SeverityBadge.astro';
+
+interface Props {
+  rule: RuleDocMetadata;
+}
+
+const { rule } = Astro.props;
+const statusLabel = rule.status === 'published' ? 'Full guide' : 'Placeholder';
+---
+
+<article class="rule-card">
+  <div class="rule-card__meta">
+    <span class="rule-card__id">{rule.id}</span>
+    <span class={`rule-card__status rule-card__status--${rule.status}`}>{statusLabel}</span>
+  </div>
+  <h3 class="rule-card__title">
+    <a href={getRuleHref(rule)}>{rule.title}</a>
+  </h3>
+  <p class="rule-card__summary">{rule.summary}</p>
+  <div class="rule-card__footer">
+    <span class="rule-card__category">{rule.category}</span>
+    <SeverityBadge severity={rule.severity} />
+  </div>
+</article>
+
+<style>
+  .rule-card {
+    display: grid;
+    gap: 0.85rem;
+    padding: 1.2rem;
+    border: 1px solid var(--color-border);
+    border-radius: 14px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01));
+  }
+
+  .rule-card__meta,
+  .rule-card__footer {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .rule-card__id {
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: var(--color-primary);
+  }
+
+  .rule-card__status {
+    padding: 0.25rem 0.5rem;
+    border-radius: 6px;
+    font-size: 0.7rem;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    background: rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .rule-card__status--published {
+    color: #9be4ad;
+    border-color: rgba(155, 228, 173, 0.2);
+  }
+
+  .rule-card__status--placeholder {
+    color: #f7d28f;
+    border-color: rgba(247, 210, 143, 0.2);
+  }
+
+  .rule-card__title {
+    margin: 0;
+    font-size: 1.15rem;
+  }
+
+  .rule-card__title a {
+    color: var(--color-text);
+    text-decoration: none;
+  }
+
+  .rule-card__title a:hover {
+    color: var(--color-primary);
+    text-decoration: underline;
+  }
+
+  .rule-card__summary {
+    margin: 0;
+    color: var(--color-text-muted);
+  }
+
+  .rule-card__category {
+    color: var(--color-text-muted);
+    font-size: 0.9rem;
+  }
+</style>

@@ -1,0 +1,205 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+---
+
+<BaseLayout
+  title="Blueprint Health Analyzer | Unreal Engine Plugin"
+  description="Automated Blueprint and asset health scanning for Unreal Engine. Find performance issues, memory leaks, and anti-patterns before they ship."
+  bodyClass="landing-slate"
+>
+  <canvas class="liquid-glass-canvas bha-collision-logo" aria-hidden="true"></canvas>
+
+  <div class="landing-vignette" aria-hidden="true"></div>
+
+  <main id="main" class="landing-main">
+    <!-- Header with Difference Blend -->
+    <header class="landing-hero bha-hero">
+      <span class="product-hero__badge">Unreal Engine Plugin</span>
+      <h1 class="landing-hero__name">
+        <span class="bha-hero__title-line">Blueprint Health</span>
+        <span class="bha-hero__title-line bha-hero__title-line--logo">
+          <span>Analyzer</span>
+          <img
+            src="/assets/images/Glint3DIcon.png"
+            alt=""
+            aria-hidden="true"
+            class="bha-hero__title-logo"
+          />
+        </span>
+      </h1>
+      <p class="landing-hero__tagline">
+        Find performance issues before your players do.
+      </p>
+    </header>
+
+    <!-- Interactive Actions Below -->
+    <div class="bha-hero__actions">
+      <a href="/blueprint-health-analyzer/docs/" class="btn btn--primary">
+        Read the Docs
+      </a>
+      <a href="#" class="btn btn--outline btn--coming-soon" data-hover="Coming Soon" onclick="event.preventDefault();">
+        <span class="btn__text">Get on Fab</span>
+      </a>
+    </div>
+  </main>
+
+  <footer class="landing-footer">
+    <span>&copy; 2026 immersalab</span>
+  </footer>
+
+  <script is:inline src="/js/fluid-sim.js"></script>
+</BaseLayout>
+
+<style>
+  .bha-hero {
+    max-width: 800px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.5rem;
+    margin-bottom: 2rem; /* Spacing between text and buttons */
+  }
+
+  .product-hero__badge {
+    display: inline-block;
+    padding: 0.4rem 1rem;
+    background: transparent;
+    color: #ffffff;
+    font-family: var(--font-sans);
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    margin-bottom: 0.5rem;
+  }
+
+  .landing-hero__name {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.2rem;
+    text-align: center;
+  }
+
+  .bha-hero__title-line {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .bha-hero__title-line--logo {
+    gap: 1rem;
+  }
+
+  .bha-hero__title-logo {
+    width: clamp(3rem, 4.4vw, 4.2rem);
+    height: auto;
+    flex: 0 0 auto;
+    opacity: 0.95;
+  }
+
+  .bha-hero__actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+    pointer-events: auto; /* landing-main is pointer-events: none */
+    z-index: 10;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.85rem 1.8rem;
+    font-size: 1rem;
+    font-weight: 600;
+    font-family: var(--font-sans);
+    border-radius: 8px;
+    text-decoration: none;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+  }
+
+  .btn:hover {
+    transform: translateY(-2px);
+  }
+
+  .btn--primary {
+    background: rgba(255, 255, 255, 0.95);
+    color: #000;
+    border: 1px solid transparent;
+  }
+
+  .btn--primary:hover {
+    background: #ffffff;
+    box-shadow: 0 4px 15px rgba(255, 255, 255, 0.2);
+  }
+
+  .btn--outline {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    color: white;
+  }
+
+  .btn--outline:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.8);
+    color: white;
+  }
+
+  /* Coming Soon Button */
+  .btn--coming-soon {
+    position: relative;
+    overflow: hidden;
+    cursor: default;
+  }
+
+  .btn--coming-soon:hover {
+    transform: none;
+  }
+
+  .btn--coming-soon .btn__text {
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: inline-block;
+  }
+
+  .btn--coming-soon::after {
+    content: attr(data-hover);
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transform: translateY(100%);
+    opacity: 0;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    white-space: nowrap;
+    font-weight: 600;
+  }
+
+  .btn--coming-soon:hover .btn__text {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+
+  .btn--coming-soon:hover::after {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  
+  @media (max-width: 640px) {
+    .landing-hero__name {
+      font-size: 2.5rem;
+    }
+    
+    .bha-hero {
+      gap: 1rem;
+    }
+  }
+</style>

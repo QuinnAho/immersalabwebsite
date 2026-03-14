@@ -1,0 +1,154 @@
+---
+interface Props {
+  title: string;
+  variant?: 'problem' | 'fix';
+  caption?: string;
+  imageSrc?: string;
+  imageAlt?: string;
+  highlights?: string[];
+}
+
+const {
+  title,
+  variant = 'problem',
+  caption,
+  imageSrc,
+  imageAlt = title,
+  highlights = [],
+} = Astro.props;
+
+const accentClass = variant === 'fix' ? 'blueprint-viewer--fix' : 'blueprint-viewer--problem';
+const label = variant === 'fix' ? 'Recommended Pattern' : 'Problematic Pattern';
+---
+
+<figure class={`blueprint-viewer ${accentClass}`}>
+  <figcaption class="blueprint-viewer__header">
+    <div>
+      <p class="blueprint-viewer__eyebrow">{label}</p>
+      <h3 class="blueprint-viewer__title">{title}</h3>
+    </div>
+  </figcaption>
+
+  {imageSrc ? (
+    <img class="blueprint-viewer__image" src={imageSrc} alt={imageAlt} loading="lazy" />
+  ) : (
+    <div class="blueprint-viewer__canvas" aria-label={imageAlt}>
+      <div class="blueprint-viewer__node blueprint-viewer__node--entry">BeginPlay</div>
+      <div class="blueprint-viewer__connector" />
+      <div class={`blueprint-viewer__node blueprint-viewer__node--focus ${accentClass}`}>
+        {variant === 'fix' ? 'Async Load Asset' : 'Direct Hard Reference'}
+      </div>
+      <div class="blueprint-viewer__connector" />
+      <div class="blueprint-viewer__node">Spawn Actor</div>
+    </div>
+  )}
+
+  {highlights.length > 0 && (
+    <ul class="blueprint-viewer__highlights">
+      {highlights.map((highlight) => (
+        <li>{highlight}</li>
+      ))}
+    </ul>
+  )}
+
+  {caption && <p class="blueprint-viewer__caption">{caption}</p>}
+</figure>
+
+<style>
+  .blueprint-viewer {
+    margin: 1.5rem 0;
+    padding: 1.25rem;
+    border: 1px solid var(--color-border);
+    border-radius: 16px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.015));
+  }
+
+  .blueprint-viewer__header {
+    margin-bottom: 1rem;
+  }
+
+  .blueprint-viewer__eyebrow {
+    margin: 0 0 0.3rem 0;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+  }
+
+  .blueprint-viewer__title {
+    margin: 0;
+    font-size: 1.15rem;
+  }
+
+  .blueprint-viewer__image {
+    width: 100%;
+    border-radius: 12px;
+    border: 1px solid var(--color-border);
+  }
+
+  .blueprint-viewer__canvas {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr auto 1fr;
+    gap: 0.75rem;
+    align-items: center;
+    padding: 1.25rem;
+    border-radius: 12px;
+    background: rgba(9, 12, 18, 0.65);
+    overflow-x: auto;
+  }
+
+  .blueprint-viewer__node {
+    min-width: 150px;
+    padding: 0.9rem 1rem;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    text-align: center;
+    font-weight: 600;
+  }
+
+  .blueprint-viewer__node--entry {
+    background: rgba(38, 99, 184, 0.18);
+  }
+
+  .blueprint-viewer__node--focus.blueprint-viewer--problem {
+    background: rgba(139, 30, 45, 0.35);
+    border-color: rgba(220, 38, 38, 0.45);
+  }
+
+  .blueprint-viewer__node--focus.blueprint-viewer--fix {
+    background: rgba(31, 90, 68, 0.35);
+    border-color: rgba(46, 160, 67, 0.45);
+  }
+
+  .blueprint-viewer__connector {
+    width: 34px;
+    height: 2px;
+    background: linear-gradient(90deg, var(--color-primary), rgba(255, 255, 255, 0.2));
+  }
+
+  .blueprint-viewer__highlights {
+    margin: 1rem 0 0 0;
+    padding-left: 1.2rem;
+  }
+
+  .blueprint-viewer__caption {
+    margin: 1rem 0 0 0;
+    color: var(--color-text-muted);
+    font-size: 0.95rem;
+  }
+
+  @media (max-width: 720px) {
+    .blueprint-viewer__canvas {
+      grid-template-columns: 1fr;
+    }
+
+    .blueprint-viewer__connector {
+      width: 2px;
+      height: 24px;
+      justify-self: center;
+      background: linear-gradient(180deg, var(--color-primary), rgba(255, 255, 255, 0.2));
+    }
+  }
+</style>

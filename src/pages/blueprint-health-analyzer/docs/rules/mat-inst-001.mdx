@@ -1,0 +1,196 @@
+---
+layout: ../../../../layouts/DocsLayout.astro
+title: MAT-INST-001 Material Instruction Budget | Blueprint Health Analyzer
+description: Learn why high shader instruction counts cause GPU performance issues and how to optimize complex materials.
+---
+
+import BlueprintViewer from '../../../../components/BlueprintViewer.astro';
+import SeverityBadge from '../../../../components/SeverityBadge.astro';
+
+# MAT-INST-001: Material Instruction Budget
+
+<div class="rule-meta">
+  <SeverityBadge severity="Warning" />
+  <span class="category">Material</span>
+</div>
+
+## What This Rule Detects
+
+This rule flags materials whose compiled shader instruction count exceeds the configured threshold (default: 350 instructions). Higher instruction counts mean more GPU work per pixel, which directly impacts frame rate.
+
+## Why This Matters
+
+### Instruction Counts Are a Proxy Signal
+
+Shader instruction counts are **not** a direct "milliseconds" measurement—they're a **proxy signal** that correlates with "more work per pixel." The actual GPU cost depends on:
+
+- **Screen coverage**: How many pixels run this shader?
+- **Overdraw**: How many times is each pixel rendered?
+- **Memory bandwidth**: Are texture fetches the bottleneck instead?
+- **GPU architecture**: Different GPUs execute shaders differently
+
+Community shader optimization guidance explicitly treats instruction counts as a useful **first look** at material complexity, not a definitive cost measurement.
+
+### The Visibility Axis (GPU)
+
+Instruction count matters most when the material covers significant screen area:
+
+| Coverage | 400-Instruction Material at 1080p | Impact |
+|----------|-----------------------------------|--------|
+| 1% (small prop) | ~8.3M instructions/frame | Negligible |
+| 25% (character) | ~207M instructions/frame | Acceptable for hero |
+| 80% (terrain/floor) | ~663M instructions/frame | Dominant GPU cost |
+
+A "cheap" material is one where the expensive work is not executed for most pixels, or is moved to less frequent paths (LOD), or is baked into textures.
+
+### Platform Instruction Budgets
+
+| Platform | Typical Budget | Notes |
+|----------|---------------|-------|
+| High-end PC | 300-500 instructions | Plenty of headroom |
+| Current-gen console | 250-400 instructions | Balanced for 60fps |
+| VR (per eye) | 100-200 instructions | Each eye renders separately |
+| Mobile | 50-150 instructions | Power and thermal constraints |
+
+These are **per-material** budgets. A scene with multiple complex materials covering screen compounds the cost.
+
+**Real Example**: A layered terrain material with 8 texture layers, height blending, wetness, and detail normals can easily hit 600+ instructions. On a landscape covering most of the screen, this becomes the dominant GPU cost—potentially 3-5ms on current-gen consoles.
+
+## When This Is Acceptable
+
+- **Hero materials**: Character faces, key props, or signature assets where visual quality justifies the cost
+- **Small screen coverage**: Materials that only appear on small objects or limited screen area
+- **LOD fallback exists**: High-detail material at LOD0 with simpler versions at distance
+- **Already profiled**: You've verified GPU performance on target hardware and have headroom
+
+## The Problem
+
+<BlueprintViewer
+  title="Complex material graphs accumulate instructions"
+  caption="Each node in the material graph compiles to shader instructions. Layered effects, complex math, and multiple texture samples add up quickly."
+  highlights={[
+    'Layered blending with multiple height samples',
+    'Runtime branching that compiles both paths',
+    'Expensive math nodes like Fresnel, Noise, and procedural patterns'
+  ]}
+/>
+
+```
+M_TerrainMaster
+├── Layer Blend (8 layers)           → 80+ instructions
+├── Height Blend per layer           → 120+ instructions
+├── Detail Normal per layer          → 60+ instructions
+├── Wetness calculation              → 40+ instructions
+├── Distance-based tiling            → 30+ instructions
+└── Macro variation                  → 50+ instructions
+                                      ─────────────────
+                            Total:    380+ instructions
+```
+
+The shader compiler shows you instruction counts in the Material Editor stats panel. When this number exceeds your budget, the material becomes a performance risk.
+
+## The Fix
+
+### Option 1: Use Material Instances with Static Switches (Recommended)
+
+Move optional features behind static switch parameters, then create instances with only needed features enabled:
+
+**Parent Material:**
+```
+Use Wetness? [Static Switch] → Wetness logic
+Use Detail Normal? [Static Switch] → Detail sampling
+Use Macro Variation? [Static Switch] → Macro logic
+```
+
+**Instances:**
+- `MI_Terrain_Full` - All features (hero areas)
+- `MI_Terrain_Simple` - No wetness/macro (background)
+- `MI_Terrain_Distant` - No detail normal (LOD)
+
+Static switches compile out unused paths entirely, reducing instructions in the final shader.
+
+### Option 2: Simplify Layer Blending
+
+Replace height-blend with simple lerps where the quality difference isn't visible:
+
+**Before (expensive):**
+```
+HeightLerp(Layer1, Layer2, HeightMap, Blend, Contrast)
+```
+
+**After (cheap):**
+```
+Lerp(Layer1, Layer2, BlendMask)
+```
+
+Height blending adds 15-20 instructions per layer transition. Simple lerps cost 1-2 instructions.
+
+### Option 3: Reduce Texture Samples
+
+Combine related data into fewer textures:
+
+- Pack Roughness, Metallic, AO into RGB channels of one texture
+- Use Packed ORM textures instead of separate maps
+- Share textures between similar materials via Material Layers
+
+Each texture sample costs 4-8 instructions plus memory bandwidth.
+
+### Option 4: Create LOD Materials
+
+Use simpler materials at distance where detail isn't visible:
+
+1. Create a "Simple" material variant without expensive features
+2. In the mesh's LOD settings, assign the simple material to LOD1+
+3. Or use Material Quality switches to reduce complexity on lower quality settings
+
+### Option 5: Move to Material Layers
+
+For complex materials, Material Layers let you:
+- Share common logic (saves compilation time)
+- Swap layers per-instance
+- Reduce redundant instructions across materials
+
+## Configuration
+
+**Threshold**: Maximum shader instruction count (default: 350)
+
+To adjust in Project Settings:
+```
+Blueprint Health Analyzer → Rule Thresholds → MAT-INST-001 → 500.0
+```
+
+Higher thresholds are appropriate for PC-only projects. Lower thresholds (200-250) are recommended for mobile or VR.
+
+## How to Check Instruction Count
+
+1. Open the material in the Material Editor
+2. Look at the **Stats** panel (Window → Stats if not visible)
+3. Find "Pixel Shader Instructions" for the base pass
+4. Note: Different shader permutations may have different counts
+
+The analyzer uses a representative instruction count that accounts for common material configurations.
+
+## Related Rules
+
+- [MAT-PERM-001](/blueprint-health-analyzer/docs/rules/mat-perm-001/) - Static switch permutation explosion
+- [MAT-TEX-001](/blueprint-health-analyzer/docs/rules/mat-tex-001/) - Texture sample count budget
+
+<style>
+{`
+  .rule-meta {
+    display: flex;
+    gap: 0.75rem;
+    margin-bottom: 2rem;
+  }
+
+  .category {
+    display: inline-block;
+    padding: 0.3rem 0.75rem;
+    font-size: 0.8rem;
+    font-weight: 500;
+    background: var(--color-surface-muted);
+    color: var(--color-text-muted);
+    border-radius: 4px;
+  }
+`}
+</style>

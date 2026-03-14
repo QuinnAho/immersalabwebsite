@@ -1,0 +1,26 @@
+{
+  "name": "immersalabwebsite",
+  "version": "1.0.0",
+  "description": "Official website for Immersalab - creative lab building immersive simulations and tools",
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Immersalab/immersalabwebsite.git"
+  },
+  "author": "Immersalab",
+  "license": "ISC",
+  "engines": {
+    "node": "^20.19.1 || >=22.12.0"
+  },
+  "dependencies": {
+    "@astrojs/mdx": "^5.0.0",
+    "@astrojs/sitemap": "^3.7.1",
+    "astro": "^6.0.3",
+    "ueblueprint": "^2.0.0"
+  }
+}

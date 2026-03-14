@@ -1,0 +1,225 @@
+---
+layout: ../../../../layouts/DocsLayout.astro
+title: MAT-TEX-001 Material Texture Samples | Blueprint Health Analyzer
+description: Learn why materials with too many texture samples hurt performance and how to consolidate texture usage.
+---
+
+import BlueprintViewer from '../../../../components/BlueprintViewer.astro';
+import SeverityBadge from '../../../../components/SeverityBadge.astro';
+
+# MAT-TEX-001: Material Texture Sample Count
+
+<div class="rule-meta">
+  <SeverityBadge severity="Warning" />
+  <span class="category">Material</span>
+</div>
+
+## What This Rule Detects
+
+This rule flags materials that sample more textures than the configured threshold (default: 12 samples). Each texture sample has a cost in terms of memory bandwidth and GPU texture unit usage.
+
+## Why This Matters
+
+### Texture Sampling Is Fundamentally About Bandwidth
+
+The cost of texture sampling is fundamentally about **memory bandwidth and cache behavior**. Each sample fetches texture data from GPU memory, and the cost varies based on:
+
+- **Texture format**: Larger formats (R16G16B16A16) fetch more bytes per sample
+- **Mipmap selection**: Lower mips reduce bandwidth demands
+- **Cache hit rate**: Repeated samples to nearby UVs are faster
+- **Filtering mode**: Anisotropic filtering samples multiple mips
+
+### Platform Bandwidth Budgets
+
+| Platform | Typical Bandwidth | Practical Sample Limit |
+|----------|-------------------|----------------------|
+| Mobile GPU | 20-50 GB/s | 5-8 samples |
+| Integrated GPU | 30-80 GB/s | 8-12 samples |
+| VR (standalone) | 30-50 GB/s | 6-10 samples |
+| Current-gen console | 400-500 GB/s | 12-20 samples |
+| High-end PC | 500-1000 GB/s | 16-24+ samples |
+
+**How to estimate**: Bandwidth ≈ (pixels × samples × bytes/sample × filter cost) / available bandwidth. When this exceeds capacity, you're bandwidth-bound.
+
+### Texture Unit Limits (Hardware)
+
+GPUs have a limited number of texture units. Exceeding these causes shader stalls:
+
+| GPU Class | Texture Units | Notes |
+|-----------|---------------|-------|
+| Intel iGPU | 16 | Strict limit |
+| Mobile (Adreno/Mali) | 16-32 | Power-constrained |
+| NVIDIA RTX | 80+ | Rarely a concern |
+
+**Real Example**: A terrain material with 8 layers, each using diffuse + normal + ORM textures, samples 24+ textures. On mobile, this material may not even compile. On PC, it wastes bandwidth on areas where only 2-3 layers blend.
+
+## When This Is Acceptable
+
+- **Hero materials**: Key character or prop materials where visual quality justifies the cost
+- **Masked complexity**: Material uses static switches to compile out unused samples
+- **Distance culling**: High-detail material only used at close range with simpler LOD fallback
+
+## The Problem
+
+<BlueprintViewer
+  title="Texture sample accumulation"
+  caption="Each texture input in your material graph adds to the sample count. Layered materials multiply this quickly."
+  highlights={[
+    'Each texture sample node adds to the count',
+    'Layered materials multiply textures per layer',
+    'Some nodes sample textures internally (noise, procedurals)'
+  ]}
+/>
+
+```
+M_TerrainMaster (Example breakdown)
+├── Layer 1: Diffuse + Normal + ORM    = 3 samples
+├── Layer 2: Diffuse + Normal + ORM    = 3 samples
+├── Layer 3: Diffuse + Normal + ORM    = 3 samples
+├── Layer 4: Diffuse + Normal + ORM    = 3 samples
+├── Macro Normal                        = 1 sample
+├── Macro Variation                     = 1 sample
+├── Detail Normal                       = 1 sample
+└── Blend Mask                          = 1 sample
+                                        ─────────
+                              Total:    16 samples
+```
+
+Even a simple-looking material can accumulate samples quickly when using standard PBR texture sets across multiple layers.
+
+## The Fix
+
+### Option 1: Pack Textures (Recommended)
+
+Combine related data into fewer textures:
+
+**Before (3 textures per material):**
+```
+T_Rock_Roughness.uasset     (R channel only)
+T_Rock_Metallic.uasset      (R channel only)
+T_Rock_AO.uasset            (R channel only)
+```
+
+**After (1 texture):**
+```
+T_Rock_ORM.uasset           (R=AO, G=Roughness, B=Metallic)
+```
+
+This reduces 3 texture samples to 1 with no quality loss.
+
+**Common packing conventions:**
+- ORM: Occlusion, Roughness, Metallic
+- RMA: Roughness, Metallic, AO
+- ARM: AO, Roughness, Metallic (Unreal default)
+
+### Option 2: Use Texture Arrays
+
+For materials with many similar textures (terrain layers, decal variants):
+
+1. Combine individual textures into a Texture2DArray
+2. Sample once with a layer index
+3. Dramatically reduces sample count for layered materials
+
+**Before (4 diffuse samples):**
+```
+Sample Layer1_Diffuse
+Sample Layer2_Diffuse
+Sample Layer3_Diffuse
+Sample Layer4_Diffuse
+```
+
+**After (1 array sample):**
+```
+Sample TerrainDiffuseArray[LayerIndex]
+```
+
+### Option 3: Remove Unused Textures
+
+Audit your material for textures that don't contribute visually:
+
+- Detail normals on surfaces viewed from distance
+- Cavity/AO maps when scene AO is sufficient
+- Emissive textures with constant zero values
+- Alpha textures on opaque materials
+
+Use the Material Editor's "Window → Statistics" to see actual used textures.
+
+### Option 4: Share Textures Across Materials
+
+Create a shared texture library:
+
+```
+Content/
+  Textures/
+    Shared/
+      T_Shared_Noise.uasset
+      T_Shared_DetailNormal.uasset
+      T_Shared_Grunge.uasset
+```
+
+Instead of duplicating detail/noise textures per material, reference shared ones. This also improves texture streaming efficiency.
+
+### Option 5: Use Virtual Texturing
+
+For projects targeting modern platforms, enable Virtual Texturing:
+
+1. Project Settings → Rendering → Enable Virtual Texturing
+2. Convert large texture sets to Virtual Textures
+3. Reduces effective sample count as VT streams only visible data
+
+Note: Virtual Texturing has its own overhead and is best for large texture atlases, not individual textures.
+
+### Option 6: Create LOD Materials
+
+Use simpler materials at distance:
+
+```cpp
+// In mesh LOD settings
+LOD0: M_Character_Full    (16 samples - close up)
+LOD1: M_Character_Medium  (8 samples - medium)
+LOD2: M_Character_Simple  (4 samples - distant)
+```
+
+## Configuration
+
+**Threshold**: Maximum texture sample count (default: 12)
+
+To adjust in Project Settings:
+```
+Blueprint Health Analyzer → Rule Thresholds → MAT-TEX-001 → 16.0
+```
+
+Lower thresholds (8) for mobile/VR projects. Higher thresholds (16+) acceptable for high-end PC.
+
+## How to Check Texture Sample Count
+
+1. Open the material in Material Editor
+2. Go to **Window → Statistics** (or press Ctrl+Shift+S)
+3. Find "Texture Samplers" in the stats
+4. Note: Virtual Textures and Texture Arrays count differently
+
+## Related Rules
+
+- [MAT-INST-001](/blueprint-health-analyzer/docs/rules/mat-inst-001/) - Shader instruction budget
+- [MAT-PERM-001](/blueprint-health-analyzer/docs/rules/mat-perm-001/) - Static switch permutation explosion
+- [AST-TEX-001](/blueprint-health-analyzer/docs/rules/ast-tex-001/) - Individual texture health issues
+
+<style>
+{`
+  .rule-meta {
+    display: flex;
+    gap: 0.75rem;
+    margin-bottom: 2rem;
+  }
+
+  .category {
+    display: inline-block;
+    padding: 0.3rem 0.75rem;
+    font-size: 0.8rem;
+    font-weight: 500;
+    background: var(--color-surface-muted);
+    color: var(--color-text-muted);
+    border-radius: 4px;
+  }
+`}
+</style>

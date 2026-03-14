@@ -1,0 +1,169 @@
+---
+layout: ../../../../layouts/DocsLayout.astro
+title: AST-UNUSED-001 Unused Assets | Blueprint Health Analyzer
+description: Learn how to identify and safely remove or archive unused assets to reduce project bloat and build times.
+---
+
+import BlueprintViewer from '../../../../components/BlueprintViewer.astro';
+import SeverityBadge from '../../../../components/SeverityBadge.astro';
+
+# AST-UNUSED-001: Unused Assets
+
+<div class="rule-meta">
+  <SeverityBadge severity="Warning" />
+  <span class="category">Asset</span>
+</div>
+
+## What This Rule Detects
+
+This rule flags assets (textures, meshes, materials) that have zero hard references from other assets within the active scan scope. These assets appear to be unused and may be candidates for removal or archiving.
+
+## Critical Caveat: Soft References
+
+**This rule uses static reference graph analysis.** It can only see **hard references**—direct asset dependencies that exist at compile time.
+
+**Soft references are invisible to this scan.** If your asset is loaded via:
+- `TSoftObjectPtr<>` / `TSoftClassPtr<>`
+- `LoadObject()` / `LoadClass()`
+- `StreamableManager`
+- Asset Manager / Primary Asset IDs
+- Data Table string paths
+
+...the asset will appear "unused" even though it's actually needed at runtime.
+
+### Hard vs Soft References
+
+| Reference Type | Visible to Scan? | Example |
+|----------------|------------------|---------|
+| **Hard reference** (`UStaticMesh*`) | Yes | Direct variable default |
+| **Soft reference** (`TSoftObjectPtr<>`) | **No** | String path loaded on demand |
+| **Dynamic LoadObject()** | **No** | Runtime path construction |
+| **Data Table entries** | Partial | Depends on column type |
+
+**If this rule flags assets you know are used**, check whether they're loaded dynamically.
+
+## Why This Matters
+
+**Disk Space**: Unused assets bloat your project size. A 4K texture that nothing references still takes 20+ MB on disk and gets processed during every cook.
+
+**Build Times**: Every asset in your Content folder gets processed during packaging. Removing unused assets directly reduces cook and packaging times.
+
+**Cook Time Impact**: A 50MB unused texture adds approximately 15-30 seconds to cook time depending on compression settings and platform.
+
+**Maintenance Burden**: Developers waste time wondering "is this used?" when browsing the Content Browser. Clear ownership reduces cognitive load.
+
+**Real Example**: A typical project after 6 months of development accumulates 10-20% dead assets from iteration—old textures, replaced meshes, abandoned materials. Cleaning these up can save gigabytes and minutes off every build.
+
+## When This Is Acceptable
+
+- **DLC/Future Content**: Assets prepared for downloadable content or planned features that aren't wired up yet
+- **Dynamic Loading**: Assets loaded via `LoadObject`, `StreamableManager`, or other runtime paths the static reference graph can't see
+- **Editor-Only Assets**: Debug visualizations, test content, or editor utilities not intended for shipping
+- **Plugin Content**: Assets provided by a plugin but not yet integrated into the project
+- **Scan Scope Limitations**: If you scanned `/Game/Characters/` but the asset is referenced from `/Game/Levels/`, it will appear unused within that scope
+
+## The Problem
+
+<BlueprintViewer
+  title="Orphaned assets accumulate over time"
+  caption="Assets that were once referenced but are no longer used continue to consume disk space and slow down builds."
+  highlights={[
+    'Iterative development creates orphaned content.',
+    'Renamed or replaced assets leave old versions behind.',
+    'Imported assets that were never used still get cooked.'
+  ]}
+/>
+
+```
+Content/
+├── Characters/
+│   ├── Hero/
+│   │   ├── T_Hero_Diffuse.uasset      ← Referenced by M_Hero
+│   │   ├── T_Hero_Diffuse_OLD.uasset  ← UNUSED (replaced)
+│   │   ├── T_Hero_Normal.uasset       ← Referenced by M_Hero
+│   │   └── T_Hero_Test.uasset         ← UNUSED (never integrated)
+│   └── ...
+```
+
+When you replace `T_Hero_Diffuse_OLD` with a new texture but forget to delete the old one, it sits in your project forever—taking up space, getting cooked, and confusing future developers.
+
+## The Fix
+
+### Option 1: Use the Size Map (Recommended First Step)
+
+Before deleting anything, verify the asset is truly unused:
+
+1. Right-click the asset in Content Browser
+2. Select **Asset Actions → Size Map**
+3. Check "Show Referenced Assets" to see what uses this asset
+4. If nothing references it and it's not dynamically loaded, it's safe to remove
+
+### Option 2: Reference Viewer
+
+For a more detailed dependency graph:
+
+1. Right-click the asset in Content Browser
+2. Select **Reference Viewer**
+3. Look for incoming references (arrows pointing TO this asset)
+4. Zero incoming references = likely unused
+
+### Option 3: Archive Instead of Delete
+
+If you're unsure whether an asset is needed:
+
+1. Create a `_Archive` or `_Deprecated` folder in your project
+2. Move suspected unused assets there
+3. Add this folder to your `.uprojectdirs` exclude list or mark it "Never Cook"
+4. Delete after confirming nothing breaks in a full build/test cycle
+
+### Option 4: Fix False Positives from Dynamic Loading
+
+If your asset IS used but loaded dynamically:
+
+```cpp
+// This creates no static reference - the analyzer can't see it
+UTexture2D* Tex = LoadObject<UTexture2D>(nullptr, TEXT("/Game/Textures/T_MyTexture"));
+```
+
+To make dynamic references visible:
+1. Use Primary Asset IDs and register them with the Asset Manager
+2. Or create a Data Asset that holds soft references to dynamically loaded content
+3. The analyzer will see references to the Data Asset, reducing false positives
+
+## Configuration
+
+**Threshold**: Minimum hard referencer count (default: 0)
+
+An asset with 0 hard referencers is flagged. To change this threshold in Project Settings:
+
+```
+Blueprint Health Analyzer → Rule Thresholds → AST-UNUSED-001 → 1.0
+```
+
+Setting it to 1 means assets with only 1 referencer will also be flagged (useful for finding nearly-orphaned content).
+
+## Related Rules
+
+- [BP-REF-001](/blueprint-health-analyzer/docs/rules/bp-ref-001/) - Hard reference cascades that load too much content
+- [AST-TEX-001](/blueprint-health-analyzer/docs/rules/ast-tex-001/) - Texture health issues including oversized textures
+- [AST-MESH-001](/blueprint-health-analyzer/docs/rules/ast-mesh-001/) - Mesh optimization issues
+
+<style>
+{`
+  .rule-meta {
+    display: flex;
+    gap: 0.75rem;
+    margin-bottom: 2rem;
+  }
+
+  .category {
+    display: inline-block;
+    padding: 0.3rem 0.75rem;
+    font-size: 0.8rem;
+    font-weight: 500;
+    background: var(--color-surface-muted);
+    color: var(--color-text-muted);
+    border-radius: 4px;
+  }
+`}
+</style>

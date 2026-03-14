@@ -1,4 +1,8 @@
-﻿<!DOCTYPE html>
+---
+// Landing page for immersalab
+---
+
+<!DOCTYPE html>
 <html lang="en">
 
 <head>
@@ -6,25 +10,25 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>immersalab | Making 3D easy</title>
     <meta name="description" content="immersalab | Making 3D easy">
-    <link rel="icon" type="image/png" href="assets/images/Glint3DIcon.png">
+    <link rel="icon" type="image/png" href="/assets/images/Glint3DIcon.png">
 
     <!-- Open Graph -->
     <meta property="og:title" content="immersalab | making 3D easy">
     <meta property="og:description" content="A 3D creative lab building immersive simulations and tools.">
-    <meta property="og:image" content="assets/images/Glint3DIcon.png">
+    <meta property="og:image" content="/assets/images/Glint3DIcon.png">
     <meta property="og:type" content="website">
 
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary">
     <meta name="twitter:title" content="immersalab | making 3D easy">
     <meta name="twitter:description" content="A 3D creative lab building immersive simulations and tools.">
-    <meta name="twitter:image" content="assets/images/Glint3DIcon.png">
+    <meta name="twitter:image" content="/assets/images/Glint3DIcon.png">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
-    <link rel="stylesheet" href="css/styles.css?v=13">
+    <link rel="stylesheet" href="/css/styles.css">
 </head>
 
 <body class="landing-slate">
@@ -44,7 +48,7 @@
         <section class="landing-hero">
             <div class="landing-hero__brand">
                 <h1 class="landing-hero__name">immersalab</h1>
-                <img class="landing-hero__icon" src="assets/images/Glint3DIcon.png" alt="immersalab logo" width="88"
+                <img class="landing-hero__icon" src="/assets/images/Glint3DIcon.png" alt="immersalab logo" width="88"
                     height="88">
             </div>
             <p class="landing-hero__tagline">making 3D easy</p>
@@ -55,13 +59,13 @@
 
     <!-- Minimal footer -->
     <footer class="landing-footer">
-        <span>© 2026 immersalab</span>
+        <span>&copy; 2026 immersalab</span>
     </footer>
 
-    <script>
+    <script is:inline>
         document.documentElement.setAttribute('data-theme', 'dark');
     </script>
-    <script src="js/fluid-sim.js"></script>
+    <script is:inline src="/js/fluid-sim.js"></script>
 </body>
 
 </html>

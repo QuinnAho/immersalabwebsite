@@ -108,6 +108,7 @@ function pointerPrototype() {
     this.down = false;
     this.moved = false;
     this.color = generateColor();
+    this.radiusScale = 1;
 }
 
 let pointers = [];
@@ -130,13 +131,6 @@ gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
 textCtx.clearRect(0, 0, textCanvas.width, textCanvas.height);
 textCtx.textAlign = 'center';
 textCtx.textBaseline = 'middle';
-
-// Text removed for cleaner effect
-// textCtx.font = 'bold 140px Arial';
-// textCtx.fillStyle = 'black';
-// textCtx.fillText("", textCanvas.width / 2, textCanvas.height / 2);
-
-// Create a texture from the offscreen canvas
 const textMaskTexture = gl.createTexture();
 gl.bindTexture(gl.TEXTURE_2D, textMaskTexture);
 gl.texImage2D(
@@ -151,6 +145,40 @@ gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
 gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
 gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+
+function updateCollisionMask() {
+    textCanvas.width = gl.drawingBufferWidth;
+    textCanvas.height = gl.drawingBufferHeight;
+    textCtx.clearRect(0, 0, textCanvas.width, textCanvas.height);
+
+    if (canvas.classList.contains('bha-collision-logo')) {
+        const img = new Image();
+        img.onload = () => {
+            // Draw UE Logo relative to viewport height to ensure it feels like a big background logo
+            const vh = window.innerHeight;
+            const logoSize = vh * 0.85; // 85vh
+            
+            const x = (textCanvas.width - logoSize) / 2;
+            const y = (textCanvas.height - logoSize) / 2;
+            
+            // Draw into the 2D canvas context. Use full opacity for solid collisions.
+            textCtx.fillStyle = 'rgba(0,0,0,1)'; 
+            textCtx.drawImage(img, x, y, logoSize, logoSize);
+            
+            // Re-upload the texture to GPU asynchronously
+            gl.bindTexture(gl.TEXTURE_2D, textMaskTexture);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, textCanvas);
+        };
+        img.src = '/assets/images/unreal-engine.svg';
+    } else {
+        // Just upload the cleared blank canvas if no collision logo is needed
+        gl.bindTexture(gl.TEXTURE_2D, textMaskTexture);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, textCanvas);
+    }
+}
+
+// Initial draw and upload
+updateCollisionMask();
 
 if (isMobile()) {
     config.DYE_RESOLUTION = 512;
@@ -1283,8 +1311,10 @@ update();
 
 function update() {
     const dt = calcDeltaTime();
-    if (resizeCanvas())
+    if (resizeCanvas()) {
         initFramebuffers();
+        if (typeof updateCollisionMask === 'function') updateCollisionMask();
+    }
     updateColors(dt);
     applyInputs();
     if (!config.PAUSED)
@@ -1555,7 +1585,14 @@ function blur(target, temp, iterations) {
 function splatPointer(pointer) {
     let dx = pointer.deltaX * config.SPLAT_FORCE;
     let dy = pointer.deltaY * config.SPLAT_FORCE;
-    splat(pointer.texcoordX, pointer.texcoordY, dx, dy, pointer.color);
+    splat(
+        pointer.texcoordX,
+        pointer.texcoordY,
+        dx,
+        dy,
+        pointer.color,
+        (config.SPLAT_RADIUS / 100.0) * (pointer.radiusScale || 1)
+    );
 }
 
 function multipleSplats(amount) {
@@ -1597,16 +1634,22 @@ function correctRadius(radius) {
 
 const hoverInteractionTarget = document.querySelector('.immersalab-hero__wrapper') || canvas;
 
-function getCanvasCoordinatesFromEvent(e) {
+function getCanvasCoordinatesFromViewportPoint(clientX, clientY) {
     const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
     if (x < 0 || y < 0 || x > rect.width || y > rect.height)
         return null;
     return {
         posX: scaleByPixelRatio(x),
-        posY: scaleByPixelRatio(y)
+        posY: scaleByPixelRatio(y),
+        texcoordX: x / rect.width,
+        texcoordY: 1.0 - y / rect.height
     };
+}
+
+function getCanvasCoordinatesFromEvent(e) {
+    return getCanvasCoordinatesFromViewportPoint(e.clientX, e.clientY);
 }
 
 hoverInteractionTarget.addEventListener('mouseenter', e => {
@@ -1769,6 +1812,254 @@ function wrap(value, min, max) {
     let range = max - min;
     if (range == 0) return min;
     return (value - min) % range + min;
+}
+
+// Blueprint Health Analyzer specific synthetic inputs.
+// Drive button hover through the normal pointer path while keeping the motion
+// centered and predictable.
+const bhaButtons = document.querySelectorAll('.bha-hero__actions .btn');
+
+if (bhaButtons.length > 0) {
+    const bhaHoverPointer = new pointerPrototype();
+    const bhaSyntheticHover = {
+        frameId: null,
+        startTime: 0
+    };
+    const bhaSyntheticOrbitScale = 0.45;
+    const bhaSyntheticMinRadius = 280;
+    const bhaSyntheticMaxRadius = 720;
+    const bhaSyntheticAngularVelocity = (16 * Math.PI) / 3;
+    const bhaSyntheticOrbitDurationMs = (2 * Math.PI / bhaSyntheticAngularVelocity) * 1000;
+    const bhaSyntheticDiameterDurationMs = (2 / bhaSyntheticAngularVelocity) * 1000;
+
+    bhaHoverPointer.radiusScale = 1.45;
+    pointers.push(bhaHoverPointer);
+
+    function getBhaSyntheticHoverMetrics() {
+        const pixelRatio = window.devicePixelRatio || 1;
+        const radius = Math.min(
+            Math.max(Math.min(canvas.width, canvas.height) * bhaSyntheticOrbitScale, bhaSyntheticMinRadius * pixelRatio),
+            bhaSyntheticMaxRadius * pixelRatio
+        );
+
+        return {
+            centerX: canvas.width * 0.5,
+            centerY: canvas.height * 0.5,
+            radius
+        };
+    }
+
+    function getBhaSyntheticHoverPosition(timestamp) {
+        const { centerX, centerY, radius } = getBhaSyntheticHoverMetrics();
+        const elapsedMs = timestamp - bhaSyntheticHover.startTime;
+
+        if (elapsedMs <= bhaSyntheticOrbitDurationMs) {
+            const angle = (elapsedMs / 1000) * bhaSyntheticAngularVelocity - Math.PI / 2;
+
+            return {
+                x: centerX + Math.cos(angle) * radius,
+                y: centerY + Math.sin(angle) * radius
+            };
+        }
+
+        const diameterElapsedMs = Math.min(
+            elapsedMs - bhaSyntheticOrbitDurationMs,
+            bhaSyntheticDiameterDurationMs
+        );
+        const diameterProgress = diameterElapsedMs / bhaSyntheticDiameterDurationMs;
+
+        return {
+            x: centerX,
+            y: (centerY - radius) + (diameterProgress * radius * 2)
+        };
+    }
+
+    function stopBhaSyntheticHover() {
+        if (bhaSyntheticHover.frameId !== null) {
+            cancelAnimationFrame(bhaSyntheticHover.frameId);
+            bhaSyntheticHover.frameId = null;
+        }
+
+        if (bhaHoverPointer.down)
+            updatePointerUpData(bhaHoverPointer);
+    }
+
+    function stepBhaSyntheticHover(timestamp) {
+        if (bhaSyntheticHover.frameId === null)
+            return;
+
+        if (!config.PAUSED) {
+            const position = getBhaSyntheticHoverPosition(timestamp);
+            updatePointerMoveData(bhaHoverPointer, position.x, position.y);
+        }
+
+        if (timestamp - bhaSyntheticHover.startTime >= bhaSyntheticOrbitDurationMs + bhaSyntheticDiameterDurationMs) {
+            stopBhaSyntheticHover();
+            return;
+        }
+
+        bhaSyntheticHover.frameId = requestAnimationFrame(stepBhaSyntheticHover);
+    }
+
+    function startBhaSyntheticHover() {
+        if (bhaSyntheticHover.frameId !== null)
+            return;
+
+        bhaSyntheticHover.startTime = performance.now();
+        const position = getBhaSyntheticHoverPosition(bhaSyntheticHover.startTime);
+        updatePointerDownData(bhaHoverPointer, -2, position.x, position.y);
+        bhaSyntheticHover.frameId = requestAnimationFrame(stepBhaSyntheticHover);
+    }
+
+    bhaButtons.forEach(btn => {
+        btn.addEventListener('mouseenter', startBhaSyntheticHover);
+        btn.addEventListener('mouseleave', stopBhaSyntheticHover);
+    });
+}
+
+const docsScrollTarget = document.querySelector('.docs-content');
+const reducedMotionQuery = typeof window.matchMedia === 'function'
+    ? window.matchMedia('(prefers-reduced-motion: reduce)')
+    : null;
+
+if (docsScrollTarget && !(reducedMotionQuery && reducedMotionQuery.matches)) {
+    let lastScrollTop = docsScrollTarget.scrollTop;
+    const docsScrollChurn = {
+        frameId: null,
+        energy: 0,
+        angle: -Math.PI / 2,
+        direction: 1,
+        lastTimestamp: 0,
+        lastSplatTimestamp: 0,
+        lastScrollInputTimestamp: 0
+    };
+
+    function getDocsScrollChurnMetrics() {
+        if (window.innerWidth <= 900)
+            return null;
+
+        const docsRect = docsScrollTarget.getBoundingClientRect();
+        const viewerPanel = document.querySelector('[data-viewer-panel]');
+        let anchorX = docsRect.right + Math.max((window.innerWidth - docsRect.right) * 0.32, 56);
+
+        if (viewerPanel) {
+            const viewerRect = viewerPanel.getBoundingClientRect();
+            if (viewerRect.width > 0)
+                anchorX = viewerRect.left + viewerRect.width * 0.38;
+        }
+
+        return {
+            anchorX,
+            anchorY: docsRect.top + docsRect.height * (0.5 + docsScrollChurn.direction * 0.035),
+            radiusX: 58 + docsScrollChurn.energy * 74,
+            radiusY: 86 + docsScrollChurn.energy * 110
+        };
+    }
+
+    function stopDocsScrollChurn() {
+        if (docsScrollChurn.frameId !== null) {
+            cancelAnimationFrame(docsScrollChurn.frameId);
+            docsScrollChurn.frameId = null;
+        }
+        docsScrollChurn.lastTimestamp = 0;
+        docsScrollChurn.lastSplatTimestamp = 0;
+        docsScrollChurn.lastScrollInputTimestamp = 0;
+    }
+
+    function stepDocsScrollChurn(timestamp) {
+        if (docsScrollChurn.frameId === null)
+            return;
+
+        if (config.PAUSED) {
+            docsScrollChurn.lastTimestamp = timestamp;
+            docsScrollChurn.frameId = requestAnimationFrame(stepDocsScrollChurn);
+            return;
+        }
+
+        if (docsScrollChurn.lastTimestamp === 0)
+            docsScrollChurn.lastTimestamp = timestamp;
+
+        const dt = Math.min((timestamp - docsScrollChurn.lastTimestamp) / 1000, 0.05);
+        docsScrollChurn.lastTimestamp = timestamp;
+
+        const metrics = getDocsScrollChurnMetrics();
+        if (!metrics) {
+            stopDocsScrollChurn();
+            return;
+        }
+
+        const churnTime = timestamp / 1000;
+        const angularVelocity = (Math.PI / 4.4) + docsScrollChurn.energy * (Math.PI / 2.6);
+        const angularJitter = Math.sin(churnTime * 4.1) * 0.18 + Math.cos(churnTime * 3.1) * 0.1;
+        docsScrollChurn.angle += (angularVelocity + angularJitter) * dt * docsScrollChurn.direction;
+
+        if (timestamp - docsScrollChurn.lastSplatTimestamp >= 42) {
+            const clientX =
+                metrics.anchorX +
+                Math.cos(docsScrollChurn.angle) * metrics.radiusX +
+                Math.sin(churnTime * 4.2) * (8 + docsScrollChurn.energy * 12);
+            const clientY =
+                metrics.anchorY +
+                Math.sin(docsScrollChurn.angle * 1.15) * metrics.radiusY +
+                Math.cos(churnTime * 3.4) * (10 + docsScrollChurn.energy * 14);
+            const coords = getCanvasCoordinatesFromViewportPoint(clientX, clientY);
+
+            if (coords) {
+                const color = generateColor();
+                const tint = 0.33 + docsScrollChurn.energy * 0.16;
+                color.r *= tint;
+                color.g *= tint;
+                color.b *= tint;
+
+                const force = config.SPLAT_FORCE * (0.022 + docsScrollChurn.energy * 0.024);
+                splat(
+                    coords.texcoordX,
+                    coords.texcoordY,
+                    -Math.sin(docsScrollChurn.angle) * force,
+                    Math.cos(docsScrollChurn.angle) * force * docsScrollChurn.direction,
+                    color,
+                    config.SPLAT_RADIUS / 165.0
+                );
+            }
+
+            docsScrollChurn.lastSplatTimestamp = timestamp;
+        }
+
+        const idleMs = docsScrollChurn.lastScrollInputTimestamp > 0
+            ? timestamp - docsScrollChurn.lastScrollInputTimestamp
+            : Number.POSITIVE_INFINITY;
+        const decayRate = idleMs > 70 ? 1.7 : 1.05;
+        docsScrollChurn.energy = Math.max(0, docsScrollChurn.energy - dt * decayRate);
+
+        if (idleMs > 180 || docsScrollChurn.energy <= 0.12) {
+            stopDocsScrollChurn();
+            return;
+        }
+
+        docsScrollChurn.frameId = requestAnimationFrame(stepDocsScrollChurn);
+    }
+
+    docsScrollTarget.addEventListener('scroll', () => {
+        const currentScrollTop = docsScrollTarget.scrollTop;
+        const scrollDelta = currentScrollTop - lastScrollTop;
+        lastScrollTop = currentScrollTop;
+
+        if (scrollDelta === 0)
+            return;
+
+        docsScrollChurn.direction = Math.sign(scrollDelta) || docsScrollChurn.direction;
+        docsScrollChurn.lastScrollInputTimestamp = performance.now();
+        docsScrollChurn.energy = Math.min(
+            1,
+            docsScrollChurn.energy + Math.min(Math.abs(scrollDelta) / 180, 0.46)
+        );
+
+        if (docsScrollChurn.frameId === null) {
+            docsScrollChurn.lastTimestamp = 0;
+            docsScrollChurn.lastSplatTimestamp = 0;
+            docsScrollChurn.frameId = requestAnimationFrame(stepDocsScrollChurn);
+        }
+    }, { passive: true });
 }
 
 function getResolution(resolution) {

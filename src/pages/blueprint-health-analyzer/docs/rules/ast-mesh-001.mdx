@@ -1,0 +1,279 @@
+---
+layout: ../../../../layouts/DocsLayout.astro
+title: AST-MESH-001 Mesh Optimization | Blueprint Health Analyzer
+description: Learn why mesh LOD configuration and Nanite settings matter for performance and how to optimize static mesh assets.
+---
+
+import BlueprintViewer from '../../../../components/BlueprintViewer.astro';
+import SeverityBadge from '../../../../components/SeverityBadge.astro';
+
+# AST-MESH-001: Mesh Optimization
+
+<div class="rule-meta">
+  <SeverityBadge severity="Warning" />
+  <span class="category">Asset</span>
+</div>
+
+## What This Rule Detects
+
+This rule flags Static Mesh assets with optimization concerns:
+
+- **High polygon count without LODs**: Dense meshes that don't reduce at distance
+- **High polygon count without Nanite**: Meshes that could benefit from Nanite
+- **Low polygon count with Nanite enabled**: Overhead not justified for simple meshes
+- **Missing LOD coverage**: High-poly meshes with insufficient LOD chain
+
+The default threshold is 50,000 triangles before flagging high-poly concerns.
+
+## Why This Matters
+
+### Triangle Count Isn't the Only Cost
+
+Triangle count matters, but it's not the only geometry cost. Understanding the full picture:
+
+| Cost Factor | Impact | How to Measure |
+|-------------|--------|----------------|
+| **Triangle count** | Vertex processing, rasterization | Static Mesh Editor → Statistics |
+| **Draw calls** | CPU overhead, batching efficiency | `stat RHI` |
+| **Instance count** | Multiplies all costs | `stat SceneRendering` |
+| **Material complexity** | Per-triangle shader cost | Material Editor → Stats |
+
+### Epic's Production Example (HLOD)
+
+In a Fortnite example, Epic demonstrated using HLOD/proxy geometry to reduce a distant region from **424 meshes and 556,445 triangles** down to **1 mesh with 1,215 triangles**—an enormous reduction that demonstrates why distance-based simplification exists.
+
+This isn't about arbitrary limits—it's about matching geometry detail to actual visibility.
+
+### Nanite: What It Is and Isn't
+
+Nanite is a **different geometry pipeline**, not a magic "make everything faster" checkbox.
+
+**What Nanite does well:**
+- Automatic LOD based on screen coverage
+- Only processes triangles that contribute to pixels
+- Handles massive triangle counts (millions) gracefully
+- Excellent for dense, detailed environment geometry
+
+**What Nanite doesn't support:**
+- Skeletal meshes (not supported at all)
+- Translucent/masked materials (will use fallback)
+- Two-sided foliage (partially supported in UE 5.7 with Nanite Foliage experimental)
+- Min/Max Draw Distance (not supported—Nanite handles culling differently)
+
+**UE 5.7 note**: Nanite Foliage is now experimental, designed for dense vegetation rendering. Check release notes for current status.
+
+**Memory**: High-poly meshes with no LODs load the full mesh even when displaying at low detail. LODs allow streaming only what's needed.
+
+**Real Example**: SM_HeroStatue with 500k triangles, no LODs, Nanite disabled. Placed 20 times in a courtyard scene. At distance, still processing 10 million triangles for what could be 20k with LOD2.
+
+## When This Is Acceptable
+
+- **Hero props at fixed camera distance**: Character select screens, cinematic closeups
+- **Nanite-enabled high-detail meshes**: Nanite handles LOD automatically
+- **Intentionally simple meshes**: Props designed to be low-poly
+- **Procedural geometry**: Runtime-generated meshes that can't have authored LODs
+
+## The Problem
+
+<BlueprintViewer
+  title="LOD and Nanite decisions affect rendering budget"
+  caption="High-poly meshes need either LODs or Nanite to scale efficiently."
+  highlights={[
+    'Without LODs, full triangle count renders at all distances',
+    'Nanite has overhead inappropriate for simple meshes',
+    'Missing LOD chain means no distance optimization'
+  ]}
+/>
+
+### Optimization Scenarios
+
+```
+SM_Environment_Rock (75,000 triangles)
+
+❌ No LODs, No Nanite:
+   → Full 75k triangles at any distance
+   → 20 instances = 1.5M triangles always
+
+✅ With LODs:
+   LOD0: 75,000 triangles (0-10m)
+   LOD1: 25,000 triangles (10-30m)
+   LOD2: 5,000 triangles (30-100m)
+   LOD3: 1,000 triangles (100m+)
+   → Typical scene: ~300k triangles instead of 1.5M
+
+✅ With Nanite:
+   → Automatic triangle reduction based on screen coverage
+   → Only processes triangles that contribute to pixels
+   → Ideal for dense, detailed geometry
+```
+
+### The Checks
+
+| Condition | Severity | Why |
+|-----------|----------|-----|
+| >50k triangles, no LODs, no Nanite | Warning/Critical | No distance optimization |
+| >50k triangles, only 1 LOD | Warning | Incomplete LOD chain |
+| &lt;12.5k triangles, Nanite enabled | Info | Nanite overhead may exceed benefit |
+| >50k triangles, Nanite disabled | Info | Consider Nanite for high-detail |
+
+## The Fix
+
+### Option 1: Generate LODs (Most Common)
+
+Use Unreal's automatic LOD generation:
+
+1. Open Static Mesh Editor
+2. Window → LOD Settings
+3. Set **Number of LODs** to 4-5
+4. Click **Apply Changes**
+
+**Recommended LOD reduction settings:**
+
+| LOD | Screen Size | Triangle % | Use Case |
+|-----|-------------|------------|----------|
+| LOD0 | 1.0+ | 100% | Close inspection |
+| LOD1 | 0.5 | 50% | Mid-range |
+| LOD2 | 0.25 | 25% | Far distance |
+| LOD3 | 0.1 | 10% | Very far |
+| LOD4 | 0.05 | 5% | Distant backdrop |
+
+### Option 2: Enable Nanite
+
+For dense, detailed geometry (50k+ triangles):
+
+1. Open Static Mesh Editor
+2. Check **Enable Nanite Support**
+3. Save asset
+
+**Nanite is ideal for:**
+- Environment hero meshes
+- Scanned/photogrammetry assets
+- Dense architectural details
+- Any mesh >100k triangles
+
+**Nanite is NOT ideal for:**
+- Simple props (&lt;10k triangles)
+- Skeletal meshes (not supported)
+- Translucent materials
+- Two-sided foliage with masked materials
+
+### Option 3: Simplify Source Mesh
+
+If the mesh is over-detailed for its use case:
+
+**In DCC (Blender/Maya/Max):**
+1. Apply decimation modifier
+2. Target 50% of original triangles
+3. Preserve UV seams and hard edges
+4. Re-export to Unreal
+
+**In Unreal (Reduction Settings):**
+1. LOD Settings → LOD0 Reduction Settings
+2. Set **Percent Triangles** to target value
+3. Apply Changes
+
+### Option 4: Disable Nanite on Simple Meshes
+
+For flagged low-poly Nanite meshes:
+
+1. Open Static Mesh Editor
+2. Uncheck **Enable Nanite Support**
+3. Add manual LODs if >10k triangles
+4. Save asset
+
+**Why disable on simple meshes:**
+- Nanite has per-mesh processing overhead
+- Simple meshes render faster with traditional pipeline
+- Memory overhead for Nanite data structures
+
+### Option 5: Use HLOD for Dense Scenes
+
+For scenes with many high-poly meshes:
+
+1. Create HLOD Proxy meshes for distant viewing
+2. Configure HLOD layers in World Settings
+3. Let HLOD system swap simplified geometry at distance
+
+Useful for cityscapes, forests, and other dense environments.
+
+## LOD Screen Size Tuning
+
+Screen size determines when LODs swap. Adjust based on mesh importance:
+
+```cpp
+// In Static Mesh Editor or via Blueprint
+LOD0.ScreenSize = 1.0    // Always use when close
+LOD1.ScreenSize = 0.4    // ~40% screen height
+LOD2.ScreenSize = 0.15   // ~15% screen height
+LOD3.ScreenSize = 0.05   // ~5% screen height
+```
+
+**Aggressive (performance-focused):**
+```
+LOD transitions at larger screen sizes = earlier LOD swap
+```
+
+**Conservative (quality-focused):**
+```
+LOD transitions at smaller screen sizes = longer LOD0 usage
+```
+
+## Triangle Budget Guidelines
+
+| Asset Type | Target LOD0 | Target LOD2 | Nanite? |
+|------------|-------------|-------------|---------|
+| Small prop | 1k-5k | 200-500 | No |
+| Medium prop | 5k-20k | 1k-3k | Optional |
+| Large prop | 20k-50k | 5k-10k | Recommended |
+| Hero asset | 50k-200k | 10k-25k | Yes |
+| Environment | 100k+ | N/A | Yes |
+
+## Checking Mesh Stats
+
+In the Static Mesh Editor:
+
+1. **Statistics** panel shows triangle counts
+2. **LOD** dropdown shows per-LOD stats
+3. **Nanite** section shows cluster/triangle info
+
+In viewport:
+- `stat RHI` shows total triangles rendered
+- `stat Nanite` shows Nanite-specific stats
+- LOD coloration mode visualizes LOD distribution
+
+## Configuration
+
+**Threshold**: Triangle count before flagging high-poly (default: 50,000)
+
+To adjust in Project Settings:
+```
+Blueprint Health Analyzer → Rule Thresholds → AST-MESH-001 → 100000.0
+```
+
+Higher thresholds for Nanite-heavy projects. Lower thresholds (25,000) for mobile or VR where triangle budget is tight.
+
+## Related Rules
+
+- [MAT-INST-001](/blueprint-health-analyzer/docs/rules/mat-inst-001/) - Complex materials compound mesh cost
+- [AST-TEX-001](/blueprint-health-analyzer/docs/rules/ast-tex-001/) - Texture memory adds to mesh memory
+- [RND-SET-001](/blueprint-health-analyzer/docs/rules/rnd-set-001/) - Nanite/Lumen settings affect mesh rendering path
+
+<style>
+{`
+  .rule-meta {
+    display: flex;
+    gap: 0.75rem;
+    margin-bottom: 2rem;
+  }
+
+  .category {
+    display: inline-block;
+    padding: 0.3rem 0.75rem;
+    font-size: 0.8rem;
+    font-weight: 500;
+    background: var(--color-surface-muted);
+    color: var(--color-text-muted);
+    border-radius: 4px;
+  }
+`}
+</style>
