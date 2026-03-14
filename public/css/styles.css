@@ -113,6 +113,7 @@ body.landing-slate {
   color: #e4e4e7;
   font-family: var(--font-sans);
   overflow: hidden;
+  isolation: isolate;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -152,6 +153,7 @@ body.landing-slate .liquid-glass-canvas {
   justify-content: center;
   padding: 2rem;
   pointer-events: none;
+  mix-blend-mode: difference;
 }
 
 /* Top status */
@@ -172,7 +174,6 @@ body.landing-slate .liquid-glass-canvas {
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-  mix-blend-mode: difference;
 }
 
 /* ── Hero section ──────────────────────────────────────── */
@@ -180,7 +181,6 @@ body.landing-slate .liquid-glass-canvas {
   text-align: center;
   pointer-events: none;
   max-width: 680px;
-  mix-blend-mode: difference;
 }
 
 .landing-hero:hover .landing-hero__icon {
